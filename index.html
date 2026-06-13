@@ -1460,8 +1460,6 @@ function initApp(){
   if(fnEl){fnEl.readOnly=declarationReadonly;}
   if(ahEl){ahEl.readOnly=declarationReadonly;}
   if(dnEl){dnEl.readOnly=declarationReadonly;}
-  document.getElementById('meetingSubmittedBy').value=currentUser.name;
-  document.getElementById('meetingSubmittedAhpra').value=currentUser.ahpra||'';
   // Pre-populate sign-off fields (called from initApp AND refreshed by showPage)
   refreshMeetingSignoff();
   document.getElementById('meetingPeriod').value=now.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
