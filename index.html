@@ -1461,9 +1461,12 @@ function getSharedDocs(){
 }
 function saveSharedDocs(docs){
   _cache.sharedDocs=docs;
-  localStorage.setItem('rxaudit_shared_docs',JSON.stringify(docs));
+  try{ localStorage.setItem('rxaudit_shared_docs',JSON.stringify(docs)); }catch(e){ console.warn('localStorage shared docs:', e); }
   _pushToFirebase('sharedDocs', docs);
 }
+// Firestore documents are capped at 1MB; leave headroom for JSON overhead
+// and other fields when storing base64 file data inline.
+var FIRESTORE_DOC_SAFE_BYTES = 900000;
 
 // ── NURSE DOCS ──
 function getNurseDocs(nurseId){
@@ -1479,7 +1482,7 @@ function saveNurseDocs(nurseId, docs){
   var all={};
   try{ all=JSON.parse(localStorage.getItem('rxaudit_nurse_docs'))||{}; }catch(e){}
   all[nid]=docs;
-  localStorage.setItem('rxaudit_nurse_docs',JSON.stringify(all));
+  try{ localStorage.setItem('rxaudit_nurse_docs',JSON.stringify(all)); }catch(e){ console.warn('localStorage nurse docs:', e); }
   _pushToFirebase('nurseDocs', {nurseId:nid, list:docs});
 }
 
@@ -4320,16 +4323,29 @@ function handleAdminNurseUpload(input){
 function uploadFilesForNurse(files, nurseId, input){
   var docs=getNurseDocs(nurseId);
   var loaded=0; var total=files.length;
+  var added=0;
+  var rejected=[];
   Array.from(files).forEach(function(file){
     readFileAsB64(file,function(data){
-      docs.unshift({id:'nd_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-        name:file.name,ext:getExt(file.name),size:file.size,data:data,
-        uploaded:new Date().toLocaleDateString('en-AU')});
+      if(data){
+        docs.unshift({id:'nd_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+          name:file.name,ext:getExt(file.name),size:file.size,data:data,
+          uploaded:new Date().toLocaleDateString('en-AU')});
+        if(JSON.stringify(docs).length>FIRESTORE_DOC_SAFE_BYTES){
+          docs.shift();
+          rejected.push(file.name);
+        } else {
+          added++;
+        }
+      }
       loaded++;
       if(loaded===total){
-        saveNurseDocs(nurseId,docs);
-        renderNurseDocsList(nurseId,document.getElementById('nurseDocsList'),false);
-        showToast('✓ '+total+' file'+(total>1?'s':'')+' uploaded');
+        if(added>0){
+          saveNurseDocs(nurseId,docs);
+          renderNurseDocsList(nurseId,document.getElementById('nurseDocsList'),false);
+        }
+        if(added>0)showToast('✓ '+added+' file'+(added>1?'s':'')+' uploaded');
+        if(rejected.length)showToast('⚠ Too large for storage (combined limit ~'+Math.round(FIRESTORE_DOC_SAFE_BYTES/1024)+'KB): '+rejected.join(', '));
         if(input)input.value='';
       }
     },file.size);
@@ -4347,7 +4363,7 @@ function renderSharedDocs(isNurse){
     html+='<div style="margin-bottom:16px;">'
       +'<div style="border:2px dashed var(--teal);border-radius:10px;padding:20px;text-align:center;background:rgba(0,184,162,0.04);">'
       +'<div style="font-size:28px;margin-bottom:6px;">📂</div>'
-      +'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">PDF, Word, Excel, images — up to 5 MB per file</div>'
+      +'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">PDF, Word, Excel, images — up to ~700 KB per file</div>'
       +'<label for="sharedFileInput" style="display:inline-block;background:var(--teal);color:var(--navy);font-weight:700;padding:10px 24px;border-radius:7px;cursor:pointer;font-size:14px;">📎 Choose Files to Upload</label>'
       +'<input type="file" id="sharedFileInput" style="display:none;" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt" onchange="handleSharedUpload(this)">'
       +'</div></div>';
@@ -4423,6 +4439,8 @@ function handleSharedUpload(input){
   var docs=getSharedDocs();
   var total=files.length;
   var loaded=0;
+  var added=0;
+  var rejected=[];
   files.forEach(function(file){
     readFileAsB64(file,function(data){
       if(data){
@@ -4436,14 +4454,23 @@ function handleSharedUpload(input){
           by:currentUser.name,
           uploadedISO:new Date().toISOString()
         });
+        if(JSON.stringify(docs).length>FIRESTORE_DOC_SAFE_BYTES){
+          docs.shift();
+          rejected.push(file.name);
+        } else {
+          added++;
+        }
       }
       loaded++;
       if(loaded===total){
-        saveSharedDocs(docs);
-        notifyNursesOfNewDoc(docs[0]?docs[0].name:'document');
-        renderSharedDocs(false);
+        if(added>0){
+          saveSharedDocs(docs);
+          notifyNursesOfNewDoc(docs[0]?docs[0].name:'document');
+          renderSharedDocs(false);
+        }
         input.value='';
-        showToast('\u2713 '+total+' file'+(total>1?'s':'')+' uploaded \u2014 nurses will be notified');
+        if(added>0)showToast('\u2713 '+added+' file'+(added>1?'s':'')+' uploaded \u2014 nurses will be notified');
+        if(rejected.length)showToast('\u26a0 Too large for shared storage (combined limit ~'+Math.round(FIRESTORE_DOC_SAFE_BYTES/1024)+'KB): '+rejected.join(', '));
       }
     },file.size);
   });
@@ -4453,19 +4480,32 @@ function handleNurseUpload(input,nurseId){
   if(!input.files||!input.files.length)return;
   var docs=getNurseDocs(nurseId);
   var total=input.files.length;var loaded=0;
+  var added=0;
+  var rejected=[];
   Array.from(input.files).forEach(function(file){
     readFileAsB64(file,function(data){
-      docs.unshift({id:'nd_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-        name:file.name,ext:getExt(file.name),size:file.size,
-        data:data,uploaded:new Date().toLocaleDateString('en-AU'),
-        uploadedISO:new Date().toISOString()});
+      if(data){
+        docs.unshift({id:'nd_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          name:file.name,ext:getExt(file.name),size:file.size,
+          data:data,uploaded:new Date().toLocaleDateString('en-AU'),
+          uploadedISO:new Date().toISOString()});
+        if(JSON.stringify(docs).length>FIRESTORE_DOC_SAFE_BYTES){
+          docs.shift();
+          rejected.push(file.name);
+        } else {
+          added++;
+        }
+      }
       loaded++;
       if(loaded===total){
-        saveNurseDocs(nurseId,docs);
-        renderAdminNurseDocsSection(nurseId,
-          document.getElementById('nurseDocsUploadArea'),
-          document.getElementById('nurseDocsList'));
-        showToast('\u2713 '+total+' file'+(total>1?'s':'')+' uploaded');
+        if(added>0){
+          saveNurseDocs(nurseId,docs);
+          renderAdminNurseDocsSection(nurseId,
+            document.getElementById('nurseDocsUploadArea'),
+            document.getElementById('nurseDocsList'));
+        }
+        if(added>0)showToast('\u2713 '+added+' file'+(added>1?'s':'')+' uploaded');
+        if(rejected.length)showToast('\u26a0 Too large for storage (combined limit ~'+Math.round(FIRESTORE_DOC_SAFE_BYTES/1024)+'KB): '+rejected.join(', '));
       }
     },file.size);
   });
@@ -4473,7 +4513,7 @@ function handleNurseUpload(input,nurseId){
 }
 
 function readFileAsB64(file,cb,size){
-  if(size>5242880){cb(null);showToast('File too large (max 5MB): '+file.name);return;}
+  if(size>700000){cb(null);showToast('File too large (max ~700KB): '+file.name);return;}
   var r=new FileReader();
   r.onload=function(e){cb(e.target.result);};
   r.onerror=function(){cb(null);};
