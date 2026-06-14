@@ -373,6 +373,10 @@ textarea:focus{border-color:var(--teal);}
           <label>Written explanation for any variance (mandatory — MPA s.60)</label>
           <textarea id="varianceNote" style="height:80px;" placeholder="e.g. Dysport variance: one vial broken during prep — wastage documented. Notified Dr Philip."></textarea>
         </div>
+        <div class="field" style="margin-top:12px;">
+          <label>Patient / Notes (optional)</label>
+          <textarea id="patientNote" style="height:80px;" placeholder="e.g. Patient names or notes to track where drugs were administered"></textarea>
+        </div>
         <div id="deliveryAdjustmentNote" class="alert-box info hidden" style="margin-top:12px;margin-bottom:0;"><span>📦</span><div id="deliveryAdjustmentText"></div></div>
       </div>
       <div class="card">
@@ -3186,6 +3190,7 @@ function submitStocktake(){
     return;
   }
   var varianceNote=document.getElementById('varianceNote').value;
+  var patientNote=document.getElementById('patientNote').value;
   var drugs=[];var hasVariance=false;
   document.querySelectorAll('#drugRows .drug-row').forEach(function(row){
     var open=parseFloat(row.querySelector('.open-bal').value)||0;
@@ -3204,9 +3209,10 @@ function submitStocktake(){
   drugs.forEach(function(d){if(knownDrugs.indexOf(d.drug)<0){knownDrugs.push(d.drug);changed=true;}});
   if(changed) saveKnownDrugsForClinic(clinic,knownDrugs);
   var now=new Date();
-  saveRecord({type:'Stocktake',subtype:document.getElementById('stockType').value,clinic:clinic,by:currentUser.name,ahpra:ahpra,date:now.toISOString().split('T')[0],time:now.toTimeString().slice(0,5),drugs:drugs,hasVariance:hasVariance,varianceNote:varianceNote,checks:{locked:chk('chk1'),temp:chk('chk2'),register:chk('chk3'),expiry:chk('chk4')}});
+  saveRecord({type:'Stocktake',subtype:document.getElementById('stockType').value,clinic:clinic,by:currentUser.name,ahpra:ahpra,date:now.toISOString().split('T')[0],time:now.toTimeString().slice(0,5),drugs:drugs,hasVariance:hasVariance,varianceNote:varianceNote,patientNote:patientNote,checks:{locked:chk('chk1'),temp:chk('chk2'),register:chk('chk3'),expiry:chk('chk4')}});
   clearPendingForClinic(clinic);
   document.getElementById('varianceNote').value='';
+  document.getElementById('patientNote').value='';
   ['chk1','chk2','chk3','chk4'].forEach(function(id){var el=document.getElementById(id);el.checked=false;el.closest('.check-item').classList.remove('checked');});
   showToast('\u2713 Stocktake saved');
   setTimeout(function(){showPage('dashboard');},1000);
@@ -3943,9 +3949,10 @@ function renderLog(){
       +'<td><span class="pill '+tc+'">'+r.type+'</span></td>'
       +'<td style="font-size:12px;color:var(--muted);">'+detail+'</td>'
       +'<td>'+(r.by||'\u2014')+'</td>'
-      +'<td>'+(r.hasVariance?'<span class="pill red">\u26a0 Variance</span>':'<span class="pill green">\u2713 OK</span>')+'</td></tr>';
+      +'<td>'+(r.hasVariance?'<span class="pill red">\u26a0 Variance</span>':'<span class="pill green">\u2713 OK</span>')+'</td>'
+      +'<td style="font-size:12px;color:var(--muted);">'+(r.patientNote?r.patientNote.replace(/</g,'&lt;'):'\u2014')+'</td></tr>';
   }).join('');
-  el.innerHTML='<table class="table"><thead><tr><th>Date</th><th>Time</th><th>Clinic</th><th>Type</th><th>Details</th><th>By</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  el.innerHTML='<table class="table"><thead><tr><th>Date</th><th>Time</th><th>Clinic</th><th>Type</th><th>Details</th><th>By</th><th>Status</th><th>Patient / Notes</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
 // ============================================================
@@ -3995,7 +4002,10 @@ function exportPDF(reportType){
     addSection('STOCK DELIVERY LOG',dlRows,[{header:'Date',get:function(r){return r.date;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'Supplier',get:function(r){return r.supplier;}},{header:'Invoice',get:function(r){return r.invoice;}},{header:'Drug',get:function(r){return r.iDrug;}},{header:'Qty',get:function(r){return r.iQty;}},{header:'Batch',get:function(r){return r.iBatch;}},{header:'Expiry',get:function(r){return r.iExp;}},{header:'By',get:function(r){return r.by;}}]);
   }
   if(reportType==='variance'||reportType==='all'){
-    addSection('VARIANCE & DISCREPANCY REPORT',records.filter(function(r){return r.hasVariance;}),[{header:'Date',get:function(r){return r.date;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'By',get:function(r){return r.by;}},{header:'Explanation',get:function(r){return r.varianceNote||'No explanation provided';}}]);
+    addSection('VARIANCE & DISCREPANCY REPORT',records.filter(function(r){return r.hasVariance;}),[{header:'Date',get:function(r){return r.date;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'By',get:function(r){return r.by;}},{header:'Explanation',get:function(r){return r.varianceNote||'No explanation provided';}},{header:'Patient / Notes',get:function(r){return r.patientNote||'';}}]);
+  }
+  if(reportType==='register'||reportType==='all'){
+    addSection('STOCKTAKE PATIENT / NOTES',records.filter(function(r){return r.type==='Stocktake'&&r.patientNote;}),[{header:'Date',get:function(r){return r.date;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'By',get:function(r){return r.by;}},{header:'Patient / Notes',get:function(r){return r.patientNote;}}]);
   }
   if(reportType==='compliance'||reportType==='all'){
     addSection('COMPLIANCE CHECK HISTORY',records.filter(function(r){return r.type==='Compliance';}),[{header:'Date',get:function(r){return r.date;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'Type',get:function(r){return r.subtype;}},{header:'By',get:function(r){return r.by;}},{header:'Result',get:function(r){return r.checksPassed+'/'+r.checksTotal+' passed';}}]);
