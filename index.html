@@ -691,6 +691,12 @@ textarea:focus{border-color:var(--teal);}
         <div id="keyRegisterLiveTable"></div>
       </div>
 
+      <!-- Admin: key incident register -->
+      <div class="card hidden" id="keyIncidentAdminCard">
+        <div class="card-title" style="margin-bottom:14px;">⚠️ Key Incident Register</div>
+        <div id="keyIncidentTable"></div>
+      </div>
+
       <!-- Admin: register of all key holders -->
       <div class="card hidden" id="keyRegisterAdminCard">
         <div class="card-title" style="margin-bottom:14px;">All Key Holder Authorisations</div>
@@ -885,6 +891,43 @@ textarea:focus{border-color:var(--teal);}
   </div>
 </div>
 
+<!-- REPORT LOST / STOLEN / DAMAGED KEY MODAL -->
+<div class="modal-overlay" id="keyIncidentModal">
+  <div class="modal" style="width:min(480px,96vw);">
+    <div class="modal-title">Report Key Incident</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;" id="keyIncidentLabel"></p>
+    <div class="field"><label>What happened?</label><select id="keyIncidentType">
+      <option value="lost">Lost</option>
+      <option value="stolen">Stolen</option>
+      <option value="damaged">Damaged / Destroyed</option>
+    </select></div>
+    <div class="field"><label>Details</label><textarea id="keyIncidentDetails" style="height:70px;" placeholder="Where/when last seen, circumstances, action taken..."></textarea></div>
+    <div class="field"><label>Enter your PIN to confirm this report</label><input type="password" id="keyIncidentPin" maxlength="8" placeholder="Your login PIN" autocomplete="off"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeKeyIncidentModal()">Cancel</button>
+      <button class="btn btn-red" onclick="submitKeyIncident()">Report incident</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESOLVE KEY INCIDENT MODAL (admin) -->
+<div class="modal-overlay" id="keyIncidentResolveModal">
+  <div class="modal" style="width:min(480px,96vw);">
+    <div class="modal-title">Resolve Key Incident</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;" id="keyIncidentResolveLabel"></p>
+    <div class="field"><label>Resolution</label><select id="keyIncidentResolution">
+      <option value="recovered">Key recovered — return to service</option>
+      <option value="replaced">Key replaced — reset register entry</option>
+    </select></div>
+    <div class="field"><label>New holder (optional)</label><select id="keyIncidentResolveHolder"></select></div>
+    <div class="field"><label>Resolution notes</label><textarea id="keyIncidentResolveNotes" style="height:70px;" placeholder="Action taken, locks rekeyed, etc."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeKeyIncidentResolveModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="resolveKeyIncident()">Mark resolved</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLINIC VIEW MODAL (admin viewing clinic as nurse) -->
 <div class="modal-overlay" id="clinicViewModal" style="align-items:flex-start;padding-top:20px;">
   <div class="modal" style="width:min(700px,96vw);max-height:92vh;">
@@ -1001,7 +1044,8 @@ var _cache = {
   notifications: null,
   drugLists: {},
   keyAgreements: null,
-  keyRegister: null
+  keyRegister: null,
+  keyIncidents: null
 };
 
 // Load ALL data from Firebase into cache (called on login)
@@ -1037,6 +1081,9 @@ function _loadCacheFromFirebase(onDone){
     }),
     _db.collection('data').doc('keyRegister').get().then(function(d){
       if(d.exists) _cache.keyRegister = d.data().list || [];
+    }),
+    _db.collection('data').doc('keyIncidents').get().then(function(d){
+      if(d.exists) _cache.keyIncidents = d.data().list || [];
     })
   ];
   Promise.all(promises).then(function(){
@@ -1081,7 +1128,8 @@ function _pushToFirebase(key, data){
     readReceipts: {obj: data},
     notifications:{obj: data},
     keyAgreements:{list: data},
-    keyRegister:  {list: data}
+    keyRegister:  {list: data},
+    keyIncidents: {list: data}
   };
   _db.collection('data').doc(key)
     .set(payloads[key] || {value: data})
@@ -1474,6 +1522,16 @@ function renderKeyPage(){
       liveCard.classList.add('hidden');
     }
   }
+
+  var incidentCard=document.getElementById('keyIncidentAdminCard');
+  if(incidentCard){
+    if(isAdmin()){
+      incidentCard.classList.remove('hidden');
+      renderKeyIncidentAdmin();
+    } else {
+      incidentCard.classList.add('hidden');
+    }
+  }
 }
 
 function renderKeyAgreementChecklist(){
@@ -1602,7 +1660,9 @@ function renderMyClinicKeys(){
   }
   var rows=keys.map(function(k){
     var statusBadge='', actions='';
-    if(k.status==='pending'){
+    if(k.status==='missing'){
+      statusBadge='<span class="badge red">Missing — reported '+(k.incidentType||'lost')+'</span>';
+    } else if(k.status==='pending'){
       statusBadge='<span class="badge amber">Transfer pending → '+k.pendingToName+'</span>';
       if(k.pendingToId===currentUser.id){
         actions='<button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="openAcceptModal('+k.id+')">Respond</button>';
@@ -1610,7 +1670,8 @@ function renderMyClinicKeys(){
     } else if(k.holderId){
       statusBadge='<span class="badge green">With '+k.holderName+'</span>';
       if(k.holderId===currentUser.id){
-        actions='<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="openTransferModal('+k.id+')">Transfer</button>';
+        actions='<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="openTransferModal('+k.id+')">Transfer</button>'
+          +' <button class="btn btn-red" style="padding:4px 10px;font-size:12px;" onclick="openKeyIncidentModal('+k.id+')">Report Lost/Stolen</button>';
       }
     } else {
       statusBadge='<span class="badge grey">Unassigned</span>';
@@ -1630,12 +1691,20 @@ function renderKeyRegisterLiveAdmin(){
     return;
   }
   var rows=keys.slice().sort(function(a,b){return (a.clinic+a.label).localeCompare(b.clinic+b.label);}).map(function(k){
-    var statusBadge;
-    if(k.status==='pending') statusBadge='<span class="badge amber">'+k.holderName+' → '+k.pendingToName+' (pending)</span>';
-    else if(k.holderId) statusBadge='<span class="badge green">'+k.holderName+'</span>';
-    else statusBadge='<span class="badge grey">Unassigned</span>';
+    var statusBadge, extraBtn='';
+    if(k.status==='missing'){
+      statusBadge='<span class="badge red">Missing — '+(k.incidentType||'lost')+'</span>';
+    } else if(k.status==='pending'){
+      statusBadge='<span class="badge amber">'+k.holderName+' → '+k.pendingToName+' (pending)</span>';
+    } else if(k.holderId){
+      statusBadge='<span class="badge green">'+k.holderName+'</span>';
+      extraBtn='<button class="btn btn-red" style="padding:4px 10px;font-size:12px;" onclick="openKeyIncidentModal('+k.id+')">Report Lost/Stolen</button> ';
+    } else {
+      statusBadge='<span class="badge grey">Unassigned</span>';
+    }
     return '<tr><td>'+k.clinic+'</td><td>'+k.label+'</td><td>'+statusBadge+'</td>'
       +'<td style="text-align:right;white-space:nowrap;">'
+      +extraBtn
       +'<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="viewKeyHistory('+k.id+')">History</button> '
       +'<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="openAddKeyModal('+k.id+')">Edit</button>'
       +'</td></tr>';
@@ -1813,6 +1882,142 @@ function viewKeyHistory(keyId){
 }
 function closeKeyHistoryModal(){
   document.getElementById('keyHistoryModal').classList.remove('open');
+}
+
+// ── KEY INCIDENT REGISTER ──
+function getKeyIncidents(){
+  if(_cache.keyIncidents !== null) return _cache.keyIncidents;
+  try{ var k=JSON.parse(localStorage.getItem('rxaudit_key_incidents'));
+    if(k){ _cache.keyIncidents=k; return k; } }catch(e){}
+  _cache.keyIncidents=[]; return [];
+}
+function saveKeyIncidents(list){
+  _cache.keyIncidents=list;
+  localStorage.setItem('rxaudit_key_incidents',JSON.stringify(list));
+  _pushToFirebase('keyIncidents', list);
+}
+
+window._keyIncidentKeyId=null;
+function openKeyIncidentModal(keyId){
+  var k=getKeyRegister().find(function(x){return x.id===keyId;});
+  if(!k)return;
+  window._keyIncidentKeyId=keyId;
+  document.getElementById('keyIncidentLabel').textContent='Report "'+k.label+'" ('+k.clinic+') as lost, stolen or damaged. This will mark the key as missing on the register and notify the administrator.';
+  document.getElementById('keyIncidentType').value='lost';
+  document.getElementById('keyIncidentDetails').value='';
+  document.getElementById('keyIncidentPin').value='';
+  document.getElementById('keyIncidentModal').classList.add('open');
+}
+function closeKeyIncidentModal(){
+  document.getElementById('keyIncidentModal').classList.remove('open');
+}
+function submitKeyIncident(){
+  var keyId=window._keyIncidentKeyId;
+  var keyList=getKeyRegister();
+  var k=keyList.find(function(x){return x.id===keyId;});
+  if(!k)return;
+  var pin=(document.getElementById('keyIncidentPin').value||'').trim();
+  if(pin!==String(currentUser.pin||'')){ showToast('Incorrect PIN'); return; }
+  var type=document.getElementById('keyIncidentType').value;
+  var details=(document.getElementById('keyIncidentDetails').value||'').trim();
+
+  k.history=k.history||[];
+  k.history.push({date:new Date().toISOString(),action:'Reported '+type,fromName:k.holderName||'',toName:'',by:currentUser.name});
+  k.status='missing';
+  k.incidentType=type;
+
+  var incidents=getKeyIncidents();
+  incidents.push({
+    id:Date.now(),
+    keyId:k.id,
+    keyLabel:k.label,
+    clinic:k.clinic,
+    type:type,
+    details:details,
+    lastHolderName:k.holderName||'',
+    reportedBy:currentUser.name,
+    reportedAt:new Date().toISOString(),
+    status:'open',
+    resolution:null,
+    resolvedBy:null,
+    resolvedAt:null,
+    resolutionNotes:null
+  });
+
+  saveKeyRegister(keyList);
+  saveKeyIncidents(incidents);
+  closeKeyIncidentModal();
+  renderKeyPage();
+  showToast('Incident reported — key marked as missing');
+}
+
+function renderKeyIncidentAdmin(){
+  var el=document.getElementById('keyIncidentTable');
+  if(!el)return;
+  var incidents=getKeyIncidents();
+  if(!incidents.length){
+    el.innerHTML='<p style="font-size:13px;color:var(--muted);">No key incidents reported.</p>';
+    return;
+  }
+  var rows=incidents.slice().sort(function(a,b){return new Date(b.reportedAt)-new Date(a.reportedAt);}).map(function(inc){
+    var statusBadge=inc.status==='open'?'<span class="badge red">Open</span>':'<span class="badge green">Resolved</span>';
+    var actions=inc.status==='open'
+      ?'<button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="openKeyIncidentResolveModal('+inc.id+')">Resolve</button>'
+      :'<span style="font-size:12px;color:var(--muted);">'+(inc.resolution==='replaced'?'Replaced':'Recovered')+' by '+inc.resolvedBy+'</span>';
+    return '<tr><td>'+new Date(inc.reportedAt).toLocaleDateString()+'</td><td>'+inc.clinic+'</td><td>'+inc.keyLabel+'</td>'
+      +'<td style="text-transform:capitalize;">'+inc.type+'</td><td>'+inc.reportedBy+'</td><td>'+statusBadge+'</td>'
+      +'<td style="text-align:right;white-space:nowrap;">'+actions+'</td></tr>';
+  }).join('');
+  el.innerHTML='<table class="table"><thead><tr><th>Date</th><th>Clinic</th><th>Key</th><th>Type</th><th>Reported by</th><th>Status</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+window._keyIncidentResolveId=null;
+function openKeyIncidentResolveModal(incidentId){
+  var inc=getKeyIncidents().find(function(x){return x.id===incidentId;});
+  if(!inc)return;
+  window._keyIncidentResolveId=incidentId;
+  document.getElementById('keyIncidentResolveLabel').textContent='Resolve incident: "'+inc.keyLabel+'" ('+inc.clinic+') reported '+inc.type+' by '+inc.reportedBy+'.';
+  document.getElementById('keyIncidentResolution').value='recovered';
+  document.getElementById('keyIncidentResolveHolder').innerHTML='<option value="">Unassigned</option>'
+    +_nursesForClinic(inc.clinic).map(function(u){return '<option value="'+u.id+'">'+u.name+'</option>';}).join('');
+  document.getElementById('keyIncidentResolveNotes').value='';
+  document.getElementById('keyIncidentResolveModal').classList.add('open');
+}
+function closeKeyIncidentResolveModal(){
+  document.getElementById('keyIncidentResolveModal').classList.remove('open');
+}
+function resolveKeyIncident(){
+  var incidentId=window._keyIncidentResolveId;
+  var incidents=getKeyIncidents();
+  var inc=incidents.find(function(x){return x.id===incidentId;});
+  if(!inc)return;
+  var resolution=document.getElementById('keyIncidentResolution').value;
+  var holderId=document.getElementById('keyIncidentResolveHolder').value;
+  var notes=(document.getElementById('keyIncidentResolveNotes').value||'').trim();
+  var holder=holderId?getUsers().find(function(u){return u.id===Number(holderId);}):null;
+
+  inc.status='resolved';
+  inc.resolution=resolution;
+  inc.resolvedBy=currentUser.name;
+  inc.resolvedAt=new Date().toISOString();
+  inc.resolutionNotes=notes;
+
+  var keyList=getKeyRegister();
+  var k=keyList.find(function(x){return x.id===inc.keyId;});
+  if(k){
+    k.history=k.history||[];
+    k.history.push({date:new Date().toISOString(),action:'Incident resolved ('+resolution+')',fromName:'',toName:holder?holder.name:'Unassigned',by:currentUser.name});
+    k.status=holder?'held':'unassigned';
+    k.holderId=holder?holder.id:null;
+    k.holderName=holder?holder.name:null;
+    k.pendingToId=null; k.pendingToName=null;
+    k.incidentType=null;
+    saveKeyRegister(keyList);
+  }
+  saveKeyIncidents(incidents);
+  closeKeyIncidentResolveModal();
+  renderKeyPage();
+  showToast('Incident resolved');
 }
 
 // ── VISIBLE CLINICS ──
@@ -3183,6 +3388,14 @@ function exportPDF(reportType){
     var kaRows=getKeyAgreements().filter(function(a){return a.status==='active';});
     if(rptClinic)kaRows=kaRows.filter(function(a){return a.clinic===rptClinic;});
     addSection('S4 KEY HOLDER AGREEMENTS',kaRows,[{header:'Name',get:function(r){return r.name;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'Status',get:function(r){return r.status;}},{header:'Signed',get:function(r){return new Date(r.signedAt).toLocaleDateString();}},{header:'SOP Version',get:function(r){return r.sopVersion;}}]);
+
+    var krRows=getKeyRegister();
+    if(rptClinic)krRows=krRows.filter(function(k){return k.clinic===rptClinic;});
+    addSection('LIVE KEY REGISTER',krRows,[{header:'Clinic',get:function(r){return r.clinic;}},{header:'Key',get:function(r){return r.label;}},{header:'Status',get:function(r){return r.status;}},{header:'Current Holder',get:function(r){return r.holderName||'—';}}]);
+
+    var kiRows=getKeyIncidents();
+    if(rptClinic)kiRows=kiRows.filter(function(i){return i.clinic===rptClinic;});
+    addSection('KEY INCIDENT REGISTER',kiRows,[{header:'Date',get:function(r){return new Date(r.reportedAt).toLocaleDateString();}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'Key',get:function(r){return r.keyLabel;}},{header:'Type',get:function(r){return r.type;}},{header:'Reported By',get:function(r){return r.reportedBy;}},{header:'Status',get:function(r){return r.status;}},{header:'Resolution',get:function(r){return r.resolutionNotes||'—';}}]);
   }
   var pc=doc.internal.getNumberOfPages();
   for(var pi=1;pi<=pc;pi++){doc.setPage(pi);doc.setFontSize(7);doc.setTextColor(150,150,150);doc.text('Page '+pi+' of '+pc+' \u2014 Confidential \u2014 RX\u00b7AUDIT \u2014 '+s.rdpName,14,290);}
@@ -3726,7 +3939,8 @@ var _DATA_DOC_MAP = {
   readReceipts:  {cacheKey:'readReceipts',  lsKey:'rxaudit_docs_read',   field:'obj'},
   notifications: {cacheKey:'notifications', lsKey:'rxaudit_docs_notify', field:'obj'},
   keyAgreements: {cacheKey:'keyAgreements', lsKey:'rxaudit_key_agreements', field:'list'},
-  keyRegister:   {cacheKey:'keyRegister',   lsKey:'rxaudit_key_register', field:'list'}
+  keyRegister:   {cacheKey:'keyRegister',   lsKey:'rxaudit_key_register', field:'list'},
+  keyIncidents:  {cacheKey:'keyIncidents',  lsKey:'rxaudit_key_incidents', field:'list'}
 };
 
 function _refreshUI(){
