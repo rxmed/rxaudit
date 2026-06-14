@@ -866,9 +866,18 @@ textarea:focus{border-color:var(--teal);}
 
       <div class="card">
         <div class="card-header"><div class="card-title">Onboarding Agreement Templates</div></div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Edit the text of the Governance, Fee, and Confidentiality Agreements signed by new nurses. Changes only apply to agreements signed after saving — already-signed agreements keep their original wording. Use the tokens below anywhere in the text and they will be replaced automatically.</p>
-        <div class="alert-box info" style="margin-bottom:14px;"><span>ℹ️</span><div id="onboardingTemplateTokens"></div></div>
-        <div id="onboardingTemplateEditors"></div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Edit the text of the Governance, Fee, and Confidentiality Agreements signed by new nurses. Changes only apply to agreements signed after saving — already-signed agreements keep their original wording.</p>
+        <div id="onboardingTemplateLocked">
+          <div class="form-row">
+            <div class="field"><label>Enter admin PIN to unlock editing</label><input type="password" id="onboardingTemplatePin" placeholder="PIN"></div>
+            <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary btn-sm" onclick="unlockOnboardingTemplates()">🔓 Unlock to edit</button></div>
+          </div>
+        </div>
+        <div id="onboardingTemplateUnlocked" class="hidden">
+          <div class="alert-box info" style="margin-bottom:14px;"><span>ℹ️</span><div id="onboardingTemplateTokens"></div></div>
+          <div id="onboardingTemplateEditors"></div>
+          <button class="btn btn-ghost btn-sm" onclick="lockOnboardingTemplates()">🔒 Lock editing</button>
+        </div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Data Management</div></div>
@@ -1769,7 +1778,20 @@ function resetOnboardingTemplate(type){
   saveSettingsObj(s);
 }
 
+function unlockOnboardingTemplates(){
+  var pin=(document.getElementById('onboardingTemplatePin').value||'').trim();
+  if(pin!==String(currentUser.pin||'')){ showToast('Incorrect PIN'); return; }
+  document.getElementById('onboardingTemplatePin').value='';
+  document.getElementById('onboardingTemplateLocked').classList.add('hidden');
+  document.getElementById('onboardingTemplateUnlocked').classList.remove('hidden');
+  renderOnboardingTemplateEditors();
+}
+function lockOnboardingTemplates(){
+  document.getElementById('onboardingTemplateUnlocked').classList.add('hidden');
+  document.getElementById('onboardingTemplateLocked').classList.remove('hidden');
+}
 function renderOnboardingTemplateEditors(){
+  if(document.getElementById('onboardingTemplateUnlocked').classList.contains('hidden'))return;
   var tokensEl=document.getElementById('onboardingTemplateTokens');
   if(tokensEl){
     tokensEl.innerHTML='<strong>Available tokens:</strong> '
