@@ -754,6 +754,25 @@ textarea:focus{border-color:var(--teal);}
         </div>
       </div>
 
+      <!-- Confidentiality Agreement signing form -->
+      <div class="card hidden" id="onbConfidentialityFormCard">
+        <div class="card-title" style="margin-bottom:10px;">Confidentiality Agreement</div>
+        <div class="agreement-text" id="onbConfidentialityText"></div>
+        <div style="margin-top:16px;padding:14px;background:var(--bg);border-radius:8px;">
+          <div class="checklist">
+            <label class="check-item" onclick="toggleCheck(this)"><input type="checkbox" id="onbConfidentialityAgree">
+              <span class="check-label">I have read and understood this Agreement in full and agree to be bound by its terms.</span>
+              <span class="check-req mandatory">Mandatory</span></label>
+          </div>
+          <p style="font-size:13px;margin:12px 0;"><strong>Electronic Declaration:</strong> By typing my name and entering my PIN below, I am electronically signing this Agreement.</p>
+          <div class="form-row">
+            <div class="field"><label>Type your full name to sign</label><input type="text" id="onbConfidentialityName" placeholder="Full legal name"></div>
+            <div class="field"><label>Enter your PIN to confirm</label><input type="password" id="onbConfidentialityPin" maxlength="8" placeholder="Your login PIN" autocomplete="off"></div>
+          </div>
+          <button class="btn btn-primary" onclick="signOnboardingAgreement('confidentiality')">📝 Sign and Accept</button>
+        </div>
+      </div>
+
       <!-- Admin: register of all onboarding agreements -->
       <div class="card hidden" id="onboardingAdminCard">
         <div class="card-title" style="margin-bottom:14px;">Onboarding Agreement Status — All Nurses</div>
@@ -1883,20 +1902,85 @@ function _feeAgreementHTML(nurse){
 <p>[To be confirmed — e.g. commission percentage on treatments performed, base rate, or salary arrangement, as agreed between the Parties.]</p>
 <h4>4. Payment Schedule</h4>
 <p>[To be confirmed — e.g. frequency of payment, method of payment, and any deductions.]</p>
-<h4>5. Record Keeping</h4>
+<h4>5. Fees and Direct Debit Authority</h4>
+<p>The Registered Nurse agrees to pay all fees for governance, medicines management, compliance, audit, administrative, medical, or related services provided by the Service Provider.</p>
+<p>All fees are payable in advance and must be paid by an approved automatic direct debit arrangement.</p>
+<p>The Registered Nurse authorises the Service Provider and its nominated payment processor to automatically debit all fees and charges due under this Agreement from the nominated bank account or payment method.</p>
+<p>The Registered Nurse must maintain a valid direct debit authority at all times during the term of this Agreement.</p>
+<p>If a direct debit payment fails:</p>
+<ul>
+<li>the amount remains immediately due and payable</li>
+<li>any bank, merchant, collection, or administration fees incurred may be charged to the Registered Nurse</li>
+<li>services may be suspended until payment is received</li>
+</ul>
+<h4>6. Suspension for Non-Payment</h4>
+<p>The Service Provider may immediately suspend governance, compliance, auditing, medicines management, or related services if any amount remains unpaid for more than 7 days after becoming due.</p>
+<p>Suspension does not relieve the Registered Nurse of any obligation to pay outstanding fees.</p>
+<h4>7. Record Keeping</h4>
 <p>Both parties agree to maintain accurate records of treatments performed for the purpose of calculating fees owing under this Agreement.</p>
-<h4>6. Review and Variation</h4>
+<h4>8. Review and Variation</h4>
 <p>This Agreement may be reviewed and varied by written agreement between the Parties from time to time.</p>
-<h4>7. Termination</h4>
+<h4>9. Termination</h4>
 <p>This Agreement may be terminated in accordance with the terms of the Registered Nurse's engagement with the clinic.</p>
-<h4>8. Electronic Signature</h4>
+<h4>10. Electronic Signature</h4>
 <p>This Agreement is executed electronically. By ticking the acknowledgement box and entering your name and PIN, the Registered Nurse confirms they have read, understood, and agree to be bound by this Agreement, and a signed record (including date and time) will be retained by the clinic.</p>
 `;
 }
 
+function _confidentialityAgreementHTML(nurse){
+  var s=getSettings();
+  var rdpName=s.rdpName||'Dr Philip Lo';
+  return `
+<h4>1. Parties</h4>
+<p>This Confidentiality Agreement is between</p>
+<p><strong>Service Provider / Responsible Medical Practitioner:</strong><br>${rdpName}</p>
+<p><strong>Registered Nurse:</strong><br>${nurse.name||''}<br>AHPRA Registration ${nurse.ahpra||''}</p>
+<p><strong>Clinic:</strong><br>${nurse.clinic||''}</p>
+<h4>2. Purpose</h4>
+<p>This Agreement protects confidential information belonging to or held by the clinic, the Service Provider, and patients of the clinic, which the Registered Nurse may access in the course of their engagement.</p>
+<h4>3. Definition of Confidential Information</h4>
+<p>Confidential Information includes, but is not limited to:</p>
+<ul>
+<li>Patient records, treatment histories, and personal health information</li>
+<li>Business, financial, and commercial information of the clinic and Service Provider</li>
+<li>Supplier, pricing, and stock information</li>
+<li>Policies, procedures, manuals, registers, and operational systems</li>
+<li>Staff records and rosters</li>
+<li>Any other information designated as confidential or that would reasonably be considered confidential</li>
+</ul>
+<h4>4. Obligations of the Registered Nurse</h4>
+<p>The Registered Nurse must:</p>
+<ul>
+<li>Keep all Confidential Information strictly confidential at all times</li>
+<li>Use Confidential Information only for the purpose of performing their duties at the clinic</li>
+<li>Not disclose, copy, remove, or transmit Confidential Information to any third party without prior written consent, except as required by law or professional obligation</li>
+<li>Take all reasonable steps to prevent unauthorised access to Confidential Information, including securing devices, passwords, and physical records</li>
+<li>Comply with the <strong>Privacy Act 1988 (Cth)</strong> and all applicable health privacy legislation in relation to patient information</li>
+</ul>
+<h4>5. Exceptions</h4>
+<p>The obligations in this Agreement do not apply to information that:</p>
+<ul>
+<li>is or becomes publicly available through no fault of the Registered Nurse</li>
+<li>is required to be disclosed by law, regulation, court order, or a regulatory body such as AHPRA or Queensland Health</li>
+<li>is disclosed to the Registered Nurse's own professional indemnity insurer or legal adviser on a confidential basis</li>
+</ul>
+<h4>6. Return or Destruction of Information</h4>
+<p>On request by the clinic, or on termination of the Registered Nurse's engagement (whichever is earlier), the Registered Nurse must promptly return or destroy all documents, records, and materials containing Confidential Information, and permanently delete any electronic copies in their possession or control.</p>
+<h4>7. Duration</h4>
+<p>The obligations in this Agreement continue indefinitely, including after the Registered Nurse's engagement with the clinic ends.</p>
+<h4>8. Breach</h4>
+<p>The Registered Nurse acknowledges that unauthorised use or disclosure of Confidential Information, in particular patient health information, may constitute a serious breach of this Agreement, a breach of privacy law, and a breach of professional standards, and may result in termination of engagement and reporting to AHPRA or other relevant authorities.</p>
+<h4>9. Electronic Signature</h4>
+<p>This Agreement is executed electronically. By ticking the acknowledgement box and entering your name and PIN, the Registered Nurse confirms they have read, understood, and agree to be bound by this Agreement, and a signed record (including date and time) will be retained by the clinic.</p>
+`;
+}
+
+var CONFIDENTIALITY_AGREEMENT_VERSION = 'Confidentiality Agreement v1.0';
+
 var ONBOARDING_AGREEMENT_TYPES = {
   governance:{label:'Governance Agreement', title:'Medicines Governance & Responsibilities Agreement', version:GOVERNANCE_AGREEMENT_VERSION, html:_governanceAgreementHTML},
-  fee:{label:'Fee Agreement', title:'Fee Agreement', version:FEE_AGREEMENT_VERSION, html:_feeAgreementHTML}
+  fee:{label:'Fee Agreement', title:'Fee Agreement', version:FEE_AGREEMENT_VERSION, html:_feeAgreementHTML},
+  confidentiality:{label:'Confidentiality Agreement', title:'Confidentiality Agreement', version:CONFIDENTIALITY_AGREEMENT_VERSION, html:_confidentialityAgreementHTML}
 };
 
 function getOnboardingAgreements(){
@@ -1921,7 +2005,7 @@ function getActiveOnboardingAgreement(userId, type){
 function renderOnboardingPage(){
   var statusCard=document.getElementById('myOnboardingStatusCard');
   var adminCard=document.getElementById('onboardingAdminCard');
-  var types=['governance','fee'];
+  var types=['governance','fee','confidentiality'];
 
   if(statusCard){
     if(currentUser.role==='nurse'){
@@ -1935,13 +2019,14 @@ function renderOnboardingPage(){
       statusCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">My Onboarding Agreements</div>'+rows;
     } else {
       statusCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">Onboarding Agreements</div>'
-        +'<div class="alert-box info"><span>📝</span><div>Onboarding Agreements (Governance &amp; Fee) are signed by each Registered Nurse. Use the table below to check signing status, view signed copies, or revoke an agreement if it needs to be re-signed.</div></div>';
+        +'<div class="alert-box info"><span>📝</span><div>Onboarding Agreements (Governance, Fee &amp; Confidentiality) are signed by each Registered Nurse. Use the table below to check signing status, view signed copies, or revoke an agreement if it needs to be re-signed.</div></div>';
     }
   }
 
   types.forEach(function(type){
-    var formCard=document.getElementById(type==='governance'?'onbGovernanceFormCard':'onbFeeFormCard');
-    var textEl=document.getElementById(type==='governance'?'onbGovernanceText':'onbFeeText');
+    var prefix=_onbPrefix(type);
+    var formCard=document.getElementById(prefix+'FormCard');
+    var textEl=document.getElementById(prefix+'Text');
     if(!formCard)return;
     if(currentUser.role!=='nurse'){
       formCard.classList.add('hidden');
@@ -1966,9 +2051,13 @@ function renderOnboardingPage(){
   }
 }
 
+function _onbPrefix(type){
+  return 'onb'+type.charAt(0).toUpperCase()+type.slice(1);
+}
+
 function signOnboardingAgreement(type){
   var def=ONBOARDING_AGREEMENT_TYPES[type];
-  var prefix=type==='governance'?'onbGovernance':'onbFee';
+  var prefix=_onbPrefix(type);
   var agreeChk=document.getElementById(prefix+'Agree');
   if(!agreeChk||!agreeChk.checked){ showToast('Please tick the agreement checkbox before signing'); return; }
   var name=(document.getElementById(prefix+'Name').value||'').trim();
@@ -2006,7 +2095,7 @@ function renderOnboardingAdmin(){
   if(!el)return;
   var nurses=getUsers().filter(function(u){return u.active!==false && u.role==='nurse';});
   var rows=nurses.map(function(u){
-    var cells=['governance','fee'].map(function(type){
+    var cells=['governance','fee','confidentiality'].map(function(type){
       var active=getActiveOnboardingAgreement(u.id,type);
       var statusBadge=active
         ? '<span class="pill green">Signed '+new Date(active.signedAt).toLocaleDateString()+'</span>'
@@ -2019,8 +2108,8 @@ function renderOnboardingAdmin(){
     }).join('');
     return '<tr><td>'+u.name+'</td><td>'+(u.clinic||'')+'</td>'+cells+'</tr>';
   }).join('');
-  el.innerHTML='<div class="table-scroll"><table class="table"><thead><tr><th>Nurse</th><th>Clinic</th><th>Governance Agreement</th><th>Fee Agreement</th></tr></thead><tbody>'
-    +(rows||'<tr><td colspan="4" style="text-align:center;color:var(--muted);">No nurses found</td></tr>')+'</tbody></table></div>';
+  el.innerHTML='<div class="table-scroll"><table class="table"><thead><tr><th>Nurse</th><th>Clinic</th><th>Governance Agreement</th><th>Fee Agreement</th><th>Confidentiality Agreement</th></tr></thead><tbody>'
+    +(rows||'<tr><td colspan="5" style="text-align:center;color:var(--muted);">No nurses found</td></tr>')+'</tbody></table></div>';
 }
 
 function viewOnboardingAgreement(id){
@@ -2094,7 +2183,7 @@ function _clinicKeyStatusLine(nurse, clinic){
 // Dashboard tile summary of onboarding agreement status for a nurse
 function _clinicOnboardingStatusLine(nurse){
   if(typeof nurse.id !== 'number') return '';
-  var missing=['governance','fee'].filter(function(type){return !getActiveOnboardingAgreement(nurse.id,type);});
+  var missing=['governance','fee','confidentiality'].filter(function(type){return !getActiveOnboardingAgreement(nurse.id,type);});
   if(!missing.length) return '';
   var labels=missing.map(function(type){return ONBOARDING_AGREEMENT_TYPES[type].label;});
   return '<div style="color:var(--red);font-size:11px;font-weight:600;margin-top:4px;">📝 '+labels.join(' & ')+' not signed</div>';
