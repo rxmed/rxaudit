@@ -4083,7 +4083,8 @@ function renderUsers(){
       ?'<button class="btn btn-ghost btn-sm" onclick="editUser('+u.id+')">Edit</button> '
         +'<button class="btn btn-ghost btn-sm" onclick="viewNurseDocs('+u.id+')" style="color:var(--teal);">Files</button> '
         +'<button class="btn btn-ghost btn-sm" onclick="resetPin('+u.id+')">Reset PIN</button> '
-        +'<button class="btn btn-red btn-sm" onclick="toggleUserActive('+u.id+')">'+(u.active!==false?'Disable':'Enable')+'</button>'
+        +'<button class="btn btn-red btn-sm" onclick="toggleUserActive('+u.id+')">'+(u.active!==false?'Disable':'Enable')+'</button> '
+        +'<button class="btn btn-red btn-sm" onclick="deleteUser('+u.id+')">Delete</button>'
       :'<span style="font-size:11px;color:var(--muted);">Primary RDP</span>';
     var status=u.active!==false?'<span class="pill green">Active</span>':'<span class="pill red">Disabled</span>';
     return '<tr><td style="font-weight:600;">'+u.name+'</td><td style="font-family:monospace;font-size:12px;">'+u.username+'</td><td>'+rolePill+'</td><td style="font-family:monospace;font-size:12px;">'+(u.ahpra||'\u2014')+'</td><td style="font-size:12px;">'+(u.email||'\u2014')+'</td><td style="font-size:12px;">'+(u.emergency||'\u2014')+'</td><td>'+status+'</td><td style="text-align:right;white-space:nowrap;">'+actions+'</td></tr>';
@@ -4152,6 +4153,15 @@ function resetPin(id){
 function toggleUserActive(id){
   saveUsers(getUsers().map(function(u){return u.id===id?Object.assign({},u,{active:u.active===false?true:false}):u;}));
   renderUsers();
+}
+function deleteUser(id){
+  var user=getUsers().find(function(u){return u.id===id;});
+  if(!user)return;
+  if(!confirm('Permanently delete the account for '+user.name+'? This cannot be undone.'))return;
+  saveUsers(getUsers().filter(function(u){return u.id!==id;}));
+  renderUsers();
+  fillClinicSelect('stockClinic',false);fillClinicSelect('complianceClinic',false);fillClinicSelect('delivClinic',false);
+  showToast('✓ Account deleted');
 }
 
 // ============================================================
