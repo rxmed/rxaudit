@@ -410,7 +410,7 @@ textarea:focus{border-color:var(--teal);}
       </div>
       <div class="form-row" style="margin-bottom:16px;">
         <div class="field"><label>Nurse</label><select id="complianceClinic"></select></div>
-        <div class="field"><label>Check type</label><select id="complianceType"><option>Daily check</option><option>Weekly check</option><option>Monthly audit</option></select></div>
+        <div class="field"><label>Check type</label><select id="complianceType"><option>Daily check</option><option>Weekly check</option></select></div>
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Storage &amp; Security</div>
@@ -2947,15 +2947,16 @@ function checkMonthlyReminder(){
       }
     }
   } else {
-    // Admin: monthly compliance + meeting
-    var monthlyDone=records.some(function(r){return r.type==='Compliance'&&r.subtype==='Monthly audit'&&r.date&&r.date.startsWith(thisMonth);});
+    // Admin: weekly compliance + monthly meeting
+    var thisWeekKeyA=getWeekKey(now);
+    var weeklyDoneA=records.some(function(r){return r.type==='Compliance'&&r.date&&getWeekKey(new Date(r.date))===thisWeekKeyA;});
     var aMeetingDone=records.some(function(r){return r.type==='Meeting'&&r.date&&r.date.startsWith(thisMonth);});
-    if(!monthlyDone)items.push({label:'Monthly compliance check',action:"document.getElementById('complianceType').value='Monthly audit';showPage('checklist')"});
+    if(!weeklyDoneA)items.push({label:'Weekly compliance check',action:"showPage('checklist')"});
     if(!aMeetingDone)items.push({label:'Audit meeting minutes',action:"showPage('meeting')"});
   }
 
   if(!items.length){banner.innerHTML='';return;}
-  var period=isNurse?'this week':now.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+  var period=isNurse?'this week':'this period';
   var btns=items.map(function(item){
     return '<button class="btn btn-sm" style="background:var(--purple);color:white;border:none;margin:2px;" onclick="'+item.action+'">'+item.label+'</button>';
   }).join('');
@@ -3064,7 +3065,8 @@ function renderClinicViewContent(clinic){
   var pending=getPendingForClinic(clinic);
   var todayST=allRec.filter(function(r){return r.type==='Stocktake'&&r.date===today;});
   var monthMeeting=allRec.find(function(r){return r.type==='Meeting'&&r.date&&r.date.startsWith(thisMonth);});
-  var monthComp=allRec.find(function(r){return r.type==='Compliance'&&r.subtype==='Monthly audit'&&r.date&&r.date.startsWith(thisMonth);});
+  var thisWeekKey=getWeekKey(new Date());
+  var weekComp=allRec.find(function(r){return r.type==='Compliance'&&r.date&&getWeekKey(new Date(r.date))===thisWeekKey;});
   var variances=allRec.filter(function(r){return r.hasVariance;});
 
   var nurseHtml=nurses.length?nurses.map(function(n){
@@ -3092,7 +3094,7 @@ function renderClinicViewContent(clinic){
   var statsHtml='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">'
     +'<div class="stat-card ok"><div class="stat-label">Today</div><div class="stat-value" style="font-size:22px;">'+todayST.length+'</div><div class="stat-sub">stocktakes</div></div>'
     +'<div class="stat-card '+(monthMeeting?'ok':'warn')+'"><div class="stat-label">Meeting</div><div class="stat-value" style="font-size:22px;">'+(monthMeeting?'\u2713':'\u2014')+'</div><div class="stat-sub">this month</div></div>'
-    +'<div class="stat-card '+(monthComp?'ok':'warn')+'"><div class="stat-label">Monthly check</div><div class="stat-value" style="font-size:22px;">'+(monthComp?'\u2713':'\u2014')+'</div><div class="stat-sub">this month</div></div>'
+    +'<div class="stat-card '+(weekComp?'ok':'warn')+'"><div class="stat-label">Weekly check</div><div class="stat-value" style="font-size:22px;">'+(weekComp?'\u2713':'\u2014')+'</div><div class="stat-sub">this week</div></div>'
     +'<div class="stat-card '+(variances.length?'alert':'ok')+'"><div class="stat-label">Variances</div><div class="stat-value" style="font-size:22px;">'+variances.length+'</div><div class="stat-sub">total</div></div>'
     +'</div>';
 
@@ -3412,7 +3414,7 @@ var AGENDA_ITEMS=[
   {num:8,field:'ag_compliance',title:'Compliance Checklist Completion',
    options:[
      'Daily compliance checklists completed on all trading days',
-     'Monthly compliance audit completed within the period',
+     'Weekly compliance audit completed within the period',
      'All mandatory checklist items confirmed satisfactory',
      'No items flagged as non-compliant for the period',
      'Nurse confirms ongoing understanding of MPA 2019 obligations'
