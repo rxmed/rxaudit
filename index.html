@@ -1658,6 +1658,24 @@ function _clinicKeyStatusLine(nurse, clinic){
   return '<div style="color:var(--green);font-size:11px;font-weight:600;margin-top:4px;">🔑 Keys: All accounted for ✓</div>';
 }
 
+// Dashboard tile summary of the last S4 stocktake for a clinic
+function _lastStocktakeStatusLine(clinic){
+  var last=getLastStocktakeForClinic(clinic);
+  if(!last) return '<div style="color:var(--muted);font-size:11px;margin-top:4px;">No S4 stocktake recorded yet</div>';
+  var dt=new Date(last.date+'T'+(last.time||'00:00'));
+  var dtStr=dt.toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+(last.time||'');
+  var balanceOK=!last.hasVariance;
+  var coldOK=!last.checks||last.checks.temp!==false;
+  var balanceLabel=balanceOK
+    ?'<span style="color:var(--green);">✓ S4 balance correct</span>'
+    :'<span style="color:var(--red);font-weight:600;">⚠ S4 balance variance</span>';
+  var coldLabel=coldOK
+    ?'<span style="color:var(--green);">✓ Cold chain maintained</span>'
+    :'<span style="color:var(--red);font-weight:600;">⚠ Cold chain issue</span>';
+  return '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Last S4 stocktake: '+dtStr+'</div>'
+    +'<div style="font-size:11px;margin-top:2px;">'+balanceLabel+' &nbsp; '+coldLabel+'</div>';
+}
+
 function renderMyClinicKeys(){
   var card=document.getElementById('myClinicKeysCard');
   var el=document.getElementById('myClinicKeysTable');
@@ -2377,7 +2395,7 @@ function renderDashboard(){
       +'<div style="font-size:11px;color:var(--teal);margin-bottom:4px;">\ud83c\udfe5 '+clinic+'</div>'
       +'<div class="clinic-status"><span class="dot '+(done?'green':'amber')+'"></span>'
       +'<span style="color:'+(done?'var(--green)':'#b7791f')+';font-size:11px;font-weight:600;">'+(done?'Complete':'Pending')+'</span>'
-      +'</div>'+extra+_clinicKeyStatusLine(nurse,clinic)+'</div>';
+      +'</div>'+extra+_lastStocktakeStatusLine(clinic)+_clinicKeyStatusLine(nurse,clinic)+'</div>';
   }).join('');
 
   var recent=records.slice(0,6);
