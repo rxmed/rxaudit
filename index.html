@@ -2067,7 +2067,7 @@ function renderOnboardingPage(){
         var def=ONBOARDING_AGREEMENT_TYPES[type];
         var active=getActiveOnboardingAgreement(currentUser.id,type);
         return active
-          ? '<p><strong>'+def.label+':</strong> <span class="pill green">Signed</span> by '+active.name+' on '+new Date(active.signedAt).toLocaleString()+' ('+active.version+')</p>'
+          ? '<p><strong>'+def.label+':</strong> <span class="pill green">Signed</span> by '+active.name+' on '+new Date(active.signedAt).toLocaleString()+' ('+active.version+') <button class="btn btn-ghost btn-sm" onclick="viewOnboardingAgreement('+active.id+')">View</button></p>'
           : '<p><strong>'+def.label+':</strong> <span class="pill red">Not signed</span></p>';
       }).join('');
       statusCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">My Onboarding Agreements</div>'+rows;
