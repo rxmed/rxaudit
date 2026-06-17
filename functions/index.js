@@ -13,7 +13,9 @@ const db = admin.firestore();
 const XERO_AUTH_URL = 'https://login.xero.com/identity/connect/authorize';
 const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token';
 const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0';
-const FUNCTION_BASE = 'https://us-central1-rx-audit.cloudfunctions.net';
+// Base URL suffix shared by all v2 functions in this project
+const FUNCTION_HASH = '2d7zryzrxa';
+const FUNCTION_BASE_TPL = (name) => `https://${name}-${FUNCTION_HASH}-uc.a.run.app`;
 
 // Secrets — set via: firebase functions:secrets:set XERO_CLIENT_ID
 const XERO_CLIENT_ID = defineSecret('XERO_CLIENT_ID');
@@ -86,7 +88,7 @@ exports.xeroAuth = onRequest(
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: XERO_CLIENT_ID.value(),
-      redirect_uri: `${FUNCTION_BASE}/xeroCallback`,
+      redirect_uri: FUNCTION_BASE_TPL('xerocallback'),
       scope: 'accounting.contacts accounting.transactions accounting.settings offline_access',
       state: crypto.randomBytes(16).toString('hex'),
     });
@@ -103,7 +105,7 @@ exports.xeroCallback = onRequest(
 
       const tokenRes = await axios.post(
         XERO_TOKEN_URL,
-        `grant_type=authorization_code&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(`${FUNCTION_BASE}/xeroCallback`)}`,
+        `grant_type=authorization_code&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(FUNCTION_BASE_TPL('xerocallback'))}`,
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',

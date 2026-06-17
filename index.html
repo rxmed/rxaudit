@@ -845,7 +845,7 @@ textarea:focus{border-color:var(--teal);}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-ghost" onclick="checkXeroStatus()">↻ Refresh</button>
-            <a id="xeroConnectBtn" href="https://us-central1-rx-audit.cloudfunctions.net/xeroAuth" target="_blank" class="btn btn-primary">Connect / Reconnect Xero</a>
+            <a id="xeroConnectBtn" href="https://xeroauth-2d7zryzrxa-uc.a.run.app" target="_blank" class="btn btn-primary">Connect / Reconnect Xero</a>
           </div>
         </div>
       </div>
@@ -4723,7 +4723,7 @@ function deleteNurseDoc(nurseId,docId){
 // BILLING
 // ============================================================
 
-var FUNCTIONS_BASE = 'https://us-central1-rx-audit.cloudfunctions.net';
+var FUNCTIONS_BASE = 'https://xerostatus-2d7zryzrxa-uc.a.run.app';
 
 function getBillingConfig(){ return _cache.billingConfig || {}; }
 function getBillingData(nurseId){ return _cache.billingData[String(nurseId)] || {}; }
@@ -4757,7 +4757,7 @@ function checkXeroStatus(){
   var badge = document.getElementById('xeroStatusBadge');
   if(!badge) return;
   badge.textContent = 'Checking…';
-  fetch(FUNCTIONS_BASE + '/xeroStatus')
+  fetch(FUNCTIONS_BASE)
     .then(function(r){ return r.json(); })
     .then(function(data){
       if(data.connected){
