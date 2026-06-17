@@ -1,6 +1,8 @@
 'use strict';
 
-const functions = require('firebase-functions');
+const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const axios = require('axios');
 const crypto = require('crypto');
@@ -11,35 +13,30 @@ const db = admin.firestore();
 const XERO_AUTH_URL = 'https://login.xero.com/identity/connect/authorize';
 const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token';
 const XERO_API_BASE = 'https://api.xero.com/api.xro/2.0';
-// Cloud Function base URL — matches your Firebase project ID
 const FUNCTION_BASE = 'https://us-central1-rx-audit.cloudfunctions.net';
+
+// Secrets — set via: firebase functions:secrets:set XERO_CLIENT_ID
+const XERO_CLIENT_ID = defineSecret('XERO_CLIENT_ID');
+const XERO_CLIENT_SECRET = defineSecret('XERO_CLIENT_SECRET');
+const XERO_WEBHOOK_KEY = defineSecret('XERO_WEBHOOK_KEY');
 
 // ── HELPERS ────────────────────────────────────────────────────
 
-function getXeroCreds() {
-  const cfg = functions.config();
-  return {
-    clientId: cfg.xero.client_id,
-    clientSecret: cfg.xero.client_secret,
-    webhookKey: cfg.xero.webhook_key || '',
-  };
-}
-
-// Returns a valid Xero access token, refreshing if needed
 async function getXeroToken() {
   const doc = await db.collection('billing').doc('xeroTokens').get();
   if (!doc.exists) throw new Error('Xero not connected — visit /xeroAuth first');
   const d = doc.data();
 
   if (Date.now() >= d.expiry - 300000) {
-    const { clientId, clientSecret } = getXeroCreds();
     const res = await axios.post(
       XERO_TOKEN_URL,
       `grant_type=refresh_token&refresh_token=${encodeURIComponent(d.refreshToken)}`,
       {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+          Authorization: 'Basic ' + Buffer.from(
+            `${XERO_CLIENT_ID.value()}:${XERO_CLIENT_SECRET.value()}`
+          ).toString('base64'),
         },
       }
     );
@@ -60,7 +57,6 @@ async function getXeroTenantId() {
   return doc.data().xeroTenantId;
 }
 
-// Ensure nurse exists as a Xero Contact; creates one if missing
 async function ensureXeroContact(nurseId, nurseName, nurseEmail, token, tenantId) {
   const ref = db.collection('billing').doc(nurseId);
   const snap = await ref.get();
@@ -82,73 +78,78 @@ async function ensureXeroContact(nurseId, nurseName, nurseEmail, token, tenantId
   return contactId;
 }
 
-// ── XERO OAUTH (one-time admin setup) ──────────────────────────
+// ── XERO OAUTH ─────────────────────────────────────────────────
 
-exports.xeroAuth = functions.https.onRequest((req, res) => {
-  const { clientId } = getXeroCreds();
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    redirect_uri: `${FUNCTION_BASE}/xeroCallback`,
-    scope: 'accounting.contacts accounting.transactions accounting.settings offline_access',
-    state: crypto.randomBytes(16).toString('hex'),
-  });
-  res.redirect(`${XERO_AUTH_URL}?${params}`);
-});
-
-exports.xeroCallback = functions.https.onRequest(async (req, res) => {
-  try {
-    const { code } = req.query;
-    if (!code) { res.status(400).send('Missing authorization code'); return; }
-
-    const { clientId, clientSecret } = getXeroCreds();
-    const tokenRes = await axios.post(
-      XERO_TOKEN_URL,
-      `grant_type=authorization_code&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(`${FUNCTION_BASE}/xeroCallback`)}`,
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
-        },
-      }
-    );
-
-    const tenantsRes = await axios.get('https://api.xero.com/connections', {
-      headers: { Authorization: `Bearer ${tokenRes.data.access_token}` },
+exports.xeroAuth = onRequest(
+  { secrets: [XERO_CLIENT_ID, XERO_CLIENT_SECRET] },
+  (req, res) => {
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: XERO_CLIENT_ID.value(),
+      redirect_uri: `${FUNCTION_BASE}/xeroCallback`,
+      scope: 'accounting.contacts accounting.transactions accounting.settings offline_access',
+      state: crypto.randomBytes(16).toString('hex'),
     });
-    const tenantId = tenantsRes.data[0].tenantId;
-    const tenantName = tenantsRes.data[0].tenantName;
-
-    await db.collection('billing').doc('xeroTokens').set({
-      accessToken: tokenRes.data.access_token,
-      refreshToken: tokenRes.data.refresh_token,
-      expiry: Date.now() + tokenRes.data.expires_in * 1000,
-    });
-    await db.collection('billing').doc('config').set(
-      { xeroTenantId: tenantId, xeroTenantName: tenantName, xeroConnected: true },
-      { merge: true }
-    );
-
-    res.send(`
-      <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
-      <h2 style="color:#1a4d6e;">&#10003; Xero Connected</h2>
-      <p>Organisation: <strong>${tenantName}</strong></p>
-      <p>You can close this tab and return to RxAudit.</p>
-      </body></html>
-    `);
-  } catch (e) {
-    console.error('xeroCallback error:', e.response ? e.response.data : e.message);
-    res.status(500).send('Xero connection failed: ' + e.message);
+    res.redirect(`${XERO_AUTH_URL}?${params}`);
   }
-});
+);
+
+exports.xeroCallback = onRequest(
+  { secrets: [XERO_CLIENT_ID, XERO_CLIENT_SECRET] },
+  async (req, res) => {
+    try {
+      const { code } = req.query;
+      if (!code) { res.status(400).send('Missing authorization code'); return; }
+
+      const tokenRes = await axios.post(
+        XERO_TOKEN_URL,
+        `grant_type=authorization_code&code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(`${FUNCTION_BASE}/xeroCallback`)}`,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: 'Basic ' + Buffer.from(
+              `${XERO_CLIENT_ID.value()}:${XERO_CLIENT_SECRET.value()}`
+            ).toString('base64'),
+          },
+        }
+      );
+
+      const tenantsRes = await axios.get('https://api.xero.com/connections', {
+        headers: { Authorization: `Bearer ${tokenRes.data.access_token}` },
+      });
+      const tenantId = tenantsRes.data[0].tenantId;
+      const tenantName = tenantsRes.data[0].tenantName;
+
+      await db.collection('billing').doc('xeroTokens').set({
+        accessToken: tokenRes.data.access_token,
+        refreshToken: tokenRes.data.refresh_token,
+        expiry: Date.now() + tokenRes.data.expires_in * 1000,
+      });
+      await db.collection('billing').doc('config').set(
+        { xeroTenantId: tenantId, xeroTenantName: tenantName, xeroConnected: true },
+        { merge: true }
+      );
+
+      res.send(`
+        <html><body style="font-family:sans-serif;padding:40px;text-align:center;">
+        <h2 style="color:#1a4d6e;">&#10003; Xero Connected</h2>
+        <p>Organisation: <strong>${tenantName}</strong></p>
+        <p>You can close this tab and return to RxAudit.</p>
+        </body></html>
+      `);
+    } catch (e) {
+      console.error('xeroCallback error:', e.response ? e.response.data : e.message);
+      res.status(500).send('Xero connection failed: ' + e.message);
+    }
+  }
+);
 
 // ── BILLING RUN ────────────────────────────────────────────────
 
-async function runBillingForAllNurses() {
+async function runBillingForAllNurses(clientId, clientSecret) {
   const token = await getXeroToken();
   const tenantId = await getXeroTenantId();
 
-  // Load nurses from Firestore (same structure as app)
   const usersDoc = await db.collection('data').doc('users').get();
   const users = usersDoc.exists ? (usersDoc.data().list || []) : [];
   const nurses = users.filter(u => u.role === 'nurse' && u.active !== false);
@@ -157,7 +158,6 @@ async function runBillingForAllNurses() {
   const monthLabel = now.toLocaleString('en-AU', { month: 'long', year: 'numeric', timeZone: 'Australia/Brisbane' });
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const dueDateStr = now.toISOString().split('T')[0];
-
   const results = [];
 
   for (const nurse of nurses) {
@@ -166,20 +166,11 @@ async function runBillingForAllNurses() {
       const billingSnap = await db.collection('billing').doc(nurseId).get();
       const billing = billingSnap.exists ? billingSnap.data() : {};
       const monthlyRate = billing.monthlyRate || 0;
-      if (!monthlyRate) {
-        results.push({ nurse: nurse.name, status: 'skipped', reason: 'no rate set' });
-        continue;
-      }
+      if (!monthlyRate) { results.push({ nurse: nurse.name, status: 'skipped', reason: 'no rate set' }); continue; }
 
-      // Check not already invoiced this month
       const existing = await db.collection('billingPayments')
-        .where('nurseId', '==', nurseId)
-        .where('month', '==', monthKey)
-        .limit(1).get();
-      if (!existing.empty) {
-        results.push({ nurse: nurse.name, status: 'skipped', reason: 'already invoiced this month' });
-        continue;
-      }
+        .where('nurseId', '==', nurseId).where('month', '==', monthKey).limit(1).get();
+      if (!existing.empty) { results.push({ nurse: nurse.name, status: 'skipped', reason: 'already invoiced this month' }); continue; }
 
       const contactId = await ensureXeroContact(nurseId, nurse.name, nurse.email || '', token, tenantId);
       const gst = Math.round(monthlyRate * 0.1 * 100) / 100;
@@ -214,7 +205,7 @@ async function runBillingForAllNurses() {
       );
 
       const inv = invoiceRes.data.Invoices[0];
-      const paymentRef = await db.collection('billingPayments').add({
+      await db.collection('billingPayments').add({
         nurseId,
         nurseName: nurse.name,
         nurseClinic: nurse.clinic || '',
@@ -243,117 +234,104 @@ async function runBillingForAllNurses() {
       results.push({ nurse: nurse.name, status: 'error', error: e.message });
     }
   }
-
   return results;
 }
 
-// Scheduled daily at 8:00 AEST — checks if today is the configured billing day
-exports.monthlyBillingRun = functions.pubsub
-  .schedule('0 22 * * *')
-  .timeZone('Australia/Brisbane')
-  .onRun(async () => {
+exports.monthlyBillingRun = onSchedule(
+  { schedule: '0 22 * * *', timeZone: 'Australia/Brisbane', secrets: [XERO_CLIENT_ID, XERO_CLIENT_SECRET] },
+  async () => {
     try {
       const configDoc = await db.collection('billing').doc('config').get();
-      if (!configDoc.exists) return null;
+      if (!configDoc.exists) return;
       const billingDay = configDoc.data().billingDay;
-      if (!billingDay) return null;
+      if (!billingDay) return;
 
-      const today = new Date();
       const dayInBrisbane = parseInt(
-        new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Brisbane', day: 'numeric' }).format(today),
-        10
+        new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Brisbane', day: 'numeric' }).format(new Date()), 10
       );
+      if (dayInBrisbane !== billingDay) return;
 
-      if (dayInBrisbane !== billingDay) return null;
-
-      functions.logger.info(`Billing day ${billingDay} matched — running invoices`);
+      console.log(`Billing day ${billingDay} matched — running invoices`);
       const results = await runBillingForAllNurses();
-      functions.logger.info('Billing run complete', results);
+      console.log('Billing run complete', JSON.stringify(results));
     } catch (e) {
-      functions.logger.error('Scheduled billing run failed:', e.message);
+      console.error('Scheduled billing run failed:', e.message);
     }
-    return null;
-  });
-
-// Admin manual trigger (called from app via Firebase Functions SDK)
-exports.triggerBillingNow = functions.https.onCall(async () => {
-  try {
-    const results = await runBillingForAllNurses();
-    return { success: true, results };
-  } catch (e) {
-    throw new functions.https.HttpsError('internal', e.message);
   }
-});
+);
 
-// ── XERO WEBHOOK (payment status updates) ──────────────────────
-
-exports.xeroWebhook = functions.https.onRequest(async (req, res) => {
-  try {
-    const { webhookKey } = getXeroCreds();
-    const rawBody = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
-    const signature = req.headers['x-xero-signature'];
-
-    if (webhookKey && signature) {
-      const expected = crypto.createHmac('sha256', webhookKey).update(rawBody).digest('base64');
-      if (signature !== expected) {
-        res.status(401).send('Invalid signature');
-        return;
-      }
+exports.triggerBillingNow = onCall(
+  { secrets: [XERO_CLIENT_ID, XERO_CLIENT_SECRET] },
+  async () => {
+    try {
+      const results = await runBillingForAllNurses();
+      return { success: true, results };
+    } catch (e) {
+      throw new HttpsError('internal', e.message);
     }
+  }
+);
 
-    const events = (req.body && req.body.events) ? req.body.events : [];
+// ── XERO WEBHOOK ───────────────────────────────────────────────
 
-    for (const event of events) {
-      if (event.resourceType !== 'INVOICE' || event.eventType !== 'UPDATE') continue;
-      const invoiceId = event.resourceId;
-      if (!invoiceId) continue;
+exports.xeroWebhook = onRequest(
+  { secrets: [XERO_CLIENT_ID, XERO_CLIENT_SECRET, XERO_WEBHOOK_KEY] },
+  async (req, res) => {
+    try {
+      const rawBody = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
+      const signature = req.headers['x-xero-signature'];
+      const webhookKey = XERO_WEBHOOK_KEY.value();
 
-      try {
-        const token = await getXeroToken();
-        const tenantId = await getXeroTenantId();
-        const invRes = await axios.get(`${XERO_API_BASE}/Invoices/${invoiceId}`, {
-          headers: { Authorization: `Bearer ${token}`, 'xero-tenant-id': tenantId },
-        });
-        const inv = invRes.data.Invoices[0];
-        const xeroStatus = inv.Status;
+      if (webhookKey && signature) {
+        const expected = crypto.createHmac('sha256', webhookKey).update(rawBody).digest('base64');
+        if (signature !== expected) { res.status(401).send('Invalid signature'); return; }
+      }
 
-        const payments = await db.collection('billingPayments')
-          .where('xeroInvoiceId', '==', invoiceId).get();
+      const events = (req.body && req.body.events) ? req.body.events : [];
+      for (const event of events) {
+        if (event.resourceType !== 'INVOICE' || event.eventType !== 'UPDATE') continue;
+        const invoiceId = event.resourceId;
+        if (!invoiceId) continue;
 
-        for (const doc of payments.docs) {
-          const update = { status: xeroStatus };
-          if (xeroStatus === 'PAID') {
-            update.paidDate = new Date().toISOString().split('T')[0];
+        try {
+          const token = await getXeroToken();
+          const tenantId = await getXeroTenantId();
+          const invRes = await axios.get(`${XERO_API_BASE}/Invoices/${invoiceId}`, {
+            headers: { Authorization: `Bearer ${token}`, 'xero-tenant-id': tenantId },
+          });
+          const inv = invRes.data.Invoices[0];
+          const xeroStatus = inv.Status;
+
+          const payments = await db.collection('billingPayments').where('xeroInvoiceId', '==', invoiceId).get();
+          for (const doc of payments.docs) {
+            const update = { status: xeroStatus };
+            if (xeroStatus === 'PAID') update.paidDate = new Date().toISOString().split('T')[0];
+            await doc.ref.update(update);
+            const nurseId = doc.data().nurseId;
+            await db.collection('billing').doc(nurseId).set({
+              status: xeroStatus === 'PAID' ? 'PAID' : (xeroStatus === 'VOIDED' ? 'VOIDED' : 'OVERDUE'),
+              ...(xeroStatus === 'PAID' ? { lastPaidDate: new Date().toISOString().split('T')[0] } : {}),
+            }, { merge: true });
           }
-          await doc.ref.update(update);
-
-          const nurseId = doc.data().nurseId;
-          await db.collection('billing').doc(nurseId).set({
-            status: xeroStatus === 'PAID' ? 'PAID' : (xeroStatus === 'VOIDED' ? 'VOIDED' : 'OVERDUE'),
-            ...(xeroStatus === 'PAID' ? { lastPaidDate: new Date().toISOString().split('T')[0] } : {}),
-          }, { merge: true });
+        } catch (innerErr) {
+          console.warn('Webhook invoice update failed:', innerErr.message);
         }
-      } catch (innerErr) {
-        functions.logger.warn('Webhook invoice update failed:', innerErr.message);
       }
+      res.status(200).send('OK');
+    } catch (e) {
+      console.error('Webhook handler error:', e.message);
+      res.status(500).send('Error');
     }
-
-    res.status(200).send('OK');
-  } catch (e) {
-    functions.logger.error('Webhook handler error:', e.message);
-    res.status(500).send('Error');
   }
-});
+);
 
-// Status endpoint — lets the app check Xero connection health
-exports.xeroStatus = functions.https.onRequest(async (req, res) => {
+// ── STATUS ENDPOINT ────────────────────────────────────────────
+
+exports.xeroStatus = onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   try {
     const doc = await db.collection('billing').doc('config').get();
-    if (!doc.exists || !doc.data().xeroConnected) {
-      res.json({ connected: false });
-      return;
-    }
+    if (!doc.exists || !doc.data().xeroConnected) { res.json({ connected: false }); return; }
     res.json({ connected: true, organisation: doc.data().xeroTenantName || '' });
   } catch (e) {
     res.json({ connected: false, error: e.message });
