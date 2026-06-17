@@ -89,7 +89,7 @@ exports.xeroAuth = onRequest(
       response_type: 'code',
       client_id: XERO_CLIENT_ID.value(),
       redirect_uri: FUNCTION_BASE_TPL('xerocallback'),
-      scope: 'accounting.contacts accounting.transactions accounting.settings offline_access',
+      scope: 'accounting.contacts accounting.invoices accounting.settings offline_access',
       state: crypto.randomBytes(16).toString('hex'),
     });
     res.redirect(`${XERO_AUTH_URL}?${params}`);
