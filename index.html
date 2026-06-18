@@ -61,7 +61,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .nav-item:hover{background:rgba(255,255,255,0.05);color:white;}
 .nav-item.active{background:rgba(0,184,162,0.15);color:var(--teal-light);border-left-color:var(--teal);font-weight:500;}
 .nav-icon{font-size:15px;width:18px;text-align:center;}
-.main{flex:1;min-width:0;padding:24px;}
+.main{flex:1;padding:24px;}
 .page{display:none;}.page.active{display:block;}
 .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;}
 .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
@@ -188,7 +188,7 @@ textarea:focus{border-color:var(--teal);}
 /* ===== MOBILE / IPHONE STYLES ===== */
 @media(max-width:768px){
   /* Prevent iOS Safari from auto-zooming the page when a field is focused */
-  input,select,textarea{font-size:16px!important;max-width:100%;box-sizing:border-box;}
+  input,select,textarea{font-size:16px!important;}
   .layout{flex-direction:column;}
   .sidebar{width:100%;min-height:auto;padding:0;order:2;position:fixed;bottom:0;left:0;right:0;z-index:200;box-shadow:0 -2px 12px rgba(0,0,0,0.2);}
   .sidebar-section{display:none;}
@@ -196,8 +196,13 @@ textarea:focus{border-color:var(--teal);}
   .nav-item{flex-direction:column;gap:2px;padding:8px 4px;font-size:9px;text-align:center;border-left:none!important;border-top:3px solid transparent;min-width:54px;flex:1 0 auto;}
   .nav-item.active{border-top-color:var(--teal);border-left:none;background:rgba(0,184,162,0.15);}
   .nav-icon{font-size:18px;width:auto;}
-  .main{padding:12px;padding-bottom:80px;order:1;overflow-x:hidden;}
-  .table-scroll{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px;}
+  .main{padding:12px;padding-bottom:80px;order:1;width:100%;box-sizing:border-box;}
+  .card{box-sizing:border-box;max-width:100%;}
+  .field select,.field input{width:100%;box-sizing:border-box;}
+  .field{min-width:0;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;}
+  /* Log filter fields — prevent min-width overflow */
+  .form-row .field[style*="min-width"]{min-width:0!important;}
   .header{height:48px;padding:0 12px;}
   .header-title{display:none;}
   .header-logo{font-size:10px;}
@@ -797,10 +802,10 @@ textarea:focus{border-color:var(--teal);}
       </div>
       <div class="card" style="padding:14px;">
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-          <div class="field" style="flex:1;min-width:140px;"><label>Nurse</label><select id="filterClinic"></select></div>
-          <div class="field" style="flex:1;min-width:120px;"><label>Type</label><select id="filterType"><option value="">All types</option><option>Stocktake</option><option>Delivery</option><option>Compliance</option><option>Meeting</option></select></div>
-          <div class="field" style="flex:1;min-width:110px;"><label>From</label><input type="date" id="filterFrom"></div>
-          <div class="field" style="flex:1;min-width:110px;"><label>To</label><input type="date" id="filterTo"></div>
+          <div class="field" style="flex:1 1 120px;min-width:0;"><label>Nurse</label><select id="filterClinic"></select></div>
+          <div class="field" style="flex:1 1 100px;min-width:0;"><label>Type</label><select id="filterType"><option value="">All types</option><option>Stocktake</option><option>Delivery</option><option>Compliance</option><option>Meeting</option></select></div>
+          <div class="field" style="flex:1 1 100px;min-width:0;"><label>From</label><input type="date" id="filterFrom"></div>
+          <div class="field" style="flex:1 1 100px;min-width:0;"><label>To</label><input type="date" id="filterTo"></div>
           <button class="btn btn-primary btn-sm" style="margin-bottom:1px;" onclick="renderLog()">Filter</button>
         </div>
       </div>
