@@ -196,13 +196,7 @@ textarea:focus{border-color:var(--teal);}
   .nav-item{flex-direction:column;gap:2px;padding:8px 4px;font-size:9px;text-align:center;border-left:none!important;border-top:3px solid transparent;min-width:54px;flex:1 0 auto;}
   .nav-item.active{border-top-color:var(--teal);border-left:none;background:rgba(0,184,162,0.15);}
   .nav-icon{font-size:18px;width:auto;}
-  .main{padding:12px;padding-bottom:80px;order:1;width:100%;box-sizing:border-box;}
-  .card{box-sizing:border-box;max-width:100%;}
-  .field select,.field input{width:100%;box-sizing:border-box;}
-  .field{min-width:0;}
-  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;}
-  /* Log filter fields — prevent min-width overflow */
-  .form-row .field[style*="min-width"]{min-width:0!important;}
+  .main{padding:12px;padding-bottom:80px;order:1;}
   .header{height:48px;padding:0 12px;}
   .header-title{display:none;}
   .header-logo{font-size:10px;}
@@ -230,6 +224,7 @@ textarea:focus{border-color:var(--teal);}
   .btn-sm{padding:7px 10px;font-size:12px;}
   .monthly-reminder{flex-direction:column;}
   .audit-agenda-item{padding:10px;}
+  .delivery-header{display:none;}
 }
 @media(max-width:380px){
   .clinic-grid{grid-template-columns:1fr;}
@@ -482,7 +477,7 @@ textarea:focus{border-color:var(--teal);}
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Drugs Received</div>
-        <div style="display:grid;grid-template-columns:1fr 70px 120px 120px 90px 32px;gap:8px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);padding:0 4px;margin-bottom:8px;">
+        <div class="delivery-header" style="display:grid;grid-template-columns:1fr 70px 120px 120px 90px 32px;gap:8px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);padding:0 4px;margin-bottom:8px;">
           <div>Drug (select existing or type new name)</div><div>Qty</div><div>Batch No.</div><div>Expiry</div><div>Notes</div><div></div>
         </div>
         <div id="deliveryItems"></div>
@@ -802,10 +797,10 @@ textarea:focus{border-color:var(--teal);}
       </div>
       <div class="card" style="padding:14px;">
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
-          <div class="field" style="flex:1 1 120px;min-width:0;"><label>Nurse</label><select id="filterClinic"></select></div>
-          <div class="field" style="flex:1 1 100px;min-width:0;"><label>Type</label><select id="filterType"><option value="">All types</option><option>Stocktake</option><option>Delivery</option><option>Compliance</option><option>Meeting</option></select></div>
-          <div class="field" style="flex:1 1 100px;min-width:0;"><label>From</label><input type="date" id="filterFrom"></div>
-          <div class="field" style="flex:1 1 100px;min-width:0;"><label>To</label><input type="date" id="filterTo"></div>
+          <div class="field" style="flex:1;min-width:140px;"><label>Nurse</label><select id="filterClinic"></select></div>
+          <div class="field" style="flex:1;min-width:120px;"><label>Type</label><select id="filterType"><option value="">All types</option><option>Stocktake</option><option>Delivery</option><option>Compliance</option><option>Meeting</option></select></div>
+          <div class="field" style="flex:1;min-width:110px;"><label>From</label><input type="date" id="filterFrom"></div>
+          <div class="field" style="flex:1;min-width:110px;"><label>To</label><input type="date" id="filterTo"></div>
           <button class="btn btn-primary btn-sm" style="margin-bottom:1px;" onclick="renderLog()">Filter</button>
         </div>
       </div>
