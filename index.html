@@ -692,6 +692,34 @@ textarea:focus{border-color:var(--teal);}
         </div>
       </div>
 
+      <!-- Admin: quick clinic onboard -->
+      <div class="card hidden" id="keyQuickOnboardCard">
+        <div class="card-title" style="margin-bottom:4px;">⚡ Quick Clinic Onboard</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Select a clinic and nurse, tick the keys to register, then create all in one click.</p>
+        <div class="form-row" style="margin-bottom:12px;">
+          <div class="field">
+            <label>Clinic</label>
+            <select id="qobClinic" class="select" onchange="qobRefreshNurses()"></select>
+          </div>
+          <div class="field">
+            <label>Nurse (key holder)</label>
+            <select id="qobNurse" class="select"></select>
+          </div>
+        </div>
+        <p style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Keys to register</p>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+          <label class="check-item checked" onclick="toggleCheck(this)" style="padding:8px 12px;background:var(--bg);border-radius:8px;"><input type="checkbox" id="qobKey1" checked><span class="check-label">S4 Drug Fridge</span></label>
+          <label class="check-item checked" onclick="toggleCheck(this)" style="padding:8px 12px;background:var(--bg);border-radius:8px;"><input type="checkbox" id="qobKey2" checked><span class="check-label">Procedure Room</span></label>
+          <label class="check-item checked" onclick="toggleCheck(this)" style="padding:8px 12px;background:var(--bg);border-radius:8px;"><input type="checkbox" id="qobKey3" checked><span class="check-label">Clinic Main Front Door</span></label>
+        </div>
+        <div class="field" style="margin-bottom:12px;">
+          <label style="font-size:12px;">Additional keys (one per line, optional)</label>
+          <textarea id="qobExtra" class="input" rows="2" placeholder="e.g. Storage Room&#10;Back Door"></textarea>
+        </div>
+        <label class="check-item checked" onclick="toggleCheck(this)" style="margin-bottom:14px;padding:8px 12px;background:var(--bg);border-radius:8px;"><input type="checkbox" id="qobAdminCopy" checked><span class="check-label">Also register admin copy of each key (labelled "Admin Copy")</span></label>
+        <button class="btn btn-primary" onclick="submitQuickOnboard()">⚡ Create All Keys</button>
+      </div>
+
       <!-- Admin: clinic filter -->
       <div class="card hidden" id="keyClinicFilterCard" style="padding:12px 16px;">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -1777,13 +1805,81 @@ function renderKeyPage(){
     }
   }
 
-  if(isAdmin()) renderKeyAdminSections();
+  if(isAdmin()){ renderKeyQuickOnboard(); renderKeyAdminSections(); }
 }
 
 function renderKeyAdminSections(){
   renderKeyRegisterLiveAdmin();
   renderKeyIncidentAdmin();
   renderKeyRegisterAdmin();
+}
+
+function renderKeyQuickOnboard(){
+  var card=document.getElementById('keyQuickOnboardCard');
+  if(!card)return;
+  if(!isAdmin()){ card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  var clinics=_keyClinicsList();
+  var clinicSel=document.getElementById('qobClinic');
+  clinicSel.innerHTML=clinics.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+  qobRefreshNurses();
+}
+function qobRefreshNurses(){
+  var clinic=document.getElementById('qobClinic').value;
+  var nurses=_nursesForClinic(clinic);
+  document.getElementById('qobNurse').innerHTML='<option value="">— Unassigned —</option>'
+    +nurses.map(function(u){return '<option value="'+u.id+'">'+u.name+'</option>';}).join('');
+}
+function submitQuickOnboard(){
+  var clinic=document.getElementById('qobClinic').value;
+  if(!clinic){ showToast('Please select a clinic'); return; }
+  var nurseId=document.getElementById('qobNurse').value;
+  var nurse=nurseId?getUsers().find(function(u){return u.id===Number(nurseId);}):null;
+  var adminCopy=document.getElementById('qobAdminCopy').checked;
+
+  var keyLabels=[];
+  if(document.getElementById('qobKey1').checked) keyLabels.push('S4 Drug Fridge');
+  if(document.getElementById('qobKey2').checked) keyLabels.push('Procedure Room');
+  if(document.getElementById('qobKey3').checked) keyLabels.push('Clinic Main Front Door');
+  var extra=(document.getElementById('qobExtra').value||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  keyLabels=keyLabels.concat(extra);
+  if(!keyLabels.length){ showToast('Please select at least one key'); return; }
+
+  var list=getKeyRegister();
+  var now=new Date().toISOString();
+  var count=0;
+  keyLabels.forEach(function(label){
+    list.push({
+      id:Date.now()+count,
+      clinic:clinic,
+      label:label+(nurse?' (Nurse Copy)':''),
+      holderId:nurse?nurse.id:null,
+      holderName:nurse?nurse.name:null,
+      status:nurse?'held':'unassigned',
+      pendingToId:null,pendingToName:null,
+      history:[{date:now,action:'Key registered via Quick Onboard',fromName:'',toName:nurse?nurse.name:'Unassigned',by:currentUser.name}]
+    });
+    count++;
+    if(adminCopy){
+      list.push({
+        id:Date.now()+count,
+        clinic:clinic,
+        label:label+' (Admin Copy)',
+        holderId:null,holderName:null,
+        status:'unassigned',
+        pendingToId:null,pendingToName:null,
+        history:[{date:now,action:'Key registered via Quick Onboard (admin copy)',fromName:'',toName:'Admin',by:currentUser.name}]
+      });
+      count++;
+    }
+  });
+  saveKeyRegister(list);
+  document.getElementById('qobExtra').value='';
+  ['qobKey1','qobKey2','qobKey3'].forEach(function(id){
+    var el=document.getElementById(id); if(el){el.checked=true; el.closest('label').classList.add('checked');}
+  });
+  renderKeyAdminSections();
+  showToast('✓ '+keyLabels.length+' key'+(keyLabels.length>1?'s':'')+' created ('+(adminCopy?'nurse + admin copies':'nurse copies only')+')');
 }
 
 function renderKeyAgreementChecklist(){
