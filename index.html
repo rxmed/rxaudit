@@ -1161,6 +1161,21 @@ textarea:focus{border-color:var(--teal);}
   </div>
 </div>
 
+<!-- RECONCILE OPENING BATCHES (attribute existing shelf stock to batch numbers) -->
+<div class="modal-overlay" id="reconcileBatchModal">
+  <div class="modal" style="width:min(560px,96vw);">
+    <div class="modal-title">🏷 Attribute Batch Numbers</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;" id="reconcileBatchIntro"></p>
+    <div id="reconcileBatchRows" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addReconcileBatchRow()">+ Add another batch</button>
+    <div id="reconcileBatchTotal" style="margin-top:12px;font-size:13px;font-weight:600;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeReconcileBatchModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitReconcileBatches()">Save Batch Info</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD / EDIT KEY MODAL (admin) -->
 <div class="modal-overlay" id="keyAddModal">
   <div class="modal" style="width:min(480px,96vw);">
@@ -3557,6 +3572,7 @@ function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic){
     +' style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;justify-self:center;"'
     +' title="Remove drug">\uD83D\uDDD1</button>'
     +batchBreakdownHTML(cl,name,v)
+    +unattributedBatchLineHTML(cl,name,v)
     +'</div>';
 }
 
@@ -3769,7 +3785,100 @@ function batchBreakdownHTML(clinic,drug,opening){
   return '<div class="drug-batches"><span style="font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Batches</span>'
     +chips
     +(notes.length?'<span class="batch-note">'+notes.join(' · ')+'</span>':'')
+    +' <a href="#" onclick="openReconcileBatchModal(\''+clinic.replace(/'/g,"\\'")+'\',\''+drug.replace(/'/g,"\\'")+'\');return false;" style="font-size:11px;">+ Attribute batch</a>'
     +'</div>';
+}
+// When a drug has stock but no batch records at all (pre-dates this feature),
+// still surface a way to attribute it — the summary chips above only render
+// once at least one batch exists.
+function unattributedBatchLineHTML(clinic,drug,opening){
+  if(!clinic)return '';
+  var open=parseFloat(opening)||0;
+  if(open<=0)return '';
+  var b=getBatchBreakdownForDrug(clinic,drug);
+  if(b.length)return '';
+  return '<div class="drug-batches"><span class="batch-note">⚠ '+open+' unit(s) not attributed to any batch</span>'
+    +' <a href="#" onclick="openReconcileBatchModal(\''+clinic.replace(/'/g,"\\'")+'\',\''+drug.replace(/'/g,"\\'")+'\');return false;" style="font-size:11px;">+ Attribute batch</a>'
+    +'</div>';
+}
+
+// ── RECONCILE OPENING BATCHES ──
+// Lets existing shelf stock (logged before batch tracking existed, or with
+// no batch on the original delivery) be attributed to real batch numbers,
+// without double-counting it against the balance already fixed by the last
+// physical stocktake.
+window._reconcileClinic=null;
+window._reconcileDrug=null;
+function openReconcileBatchModal(clinic,drug){
+  window._reconcileClinic=clinic;
+  window._reconcileDrug=drug;
+  var bal=getDrugBalance(clinic,drug).balance;
+  document.getElementById('reconcileBatchIntro').innerHTML=
+    'Current expected balance for <strong>'+drug+'</strong> at <strong>'+clinic+'</strong> is <strong>'+bal+'</strong> unit(s). '
+    +'Enter the batch number(s) on the shelf that make up this stock — split across rows if more than one batch is on hand. '
+    +'This does not change your stock count, it only attributes it for recall tracing.';
+  document.getElementById('reconcileBatchRows').innerHTML='';
+  addReconcileBatchRow();
+  _reconcileUpdateTotal();
+  document.getElementById('reconcileBatchModal').classList.add('open');
+}
+function closeReconcileBatchModal(){
+  document.getElementById('reconcileBatchModal').classList.remove('open');
+}
+function addReconcileBatchRow(){
+  var row=document.createElement('div');
+  row.style.cssText='display:grid;grid-template-columns:1fr 90px 130px 28px;gap:8px;align-items:center;';
+  row.innerHTML='<input type="text" class="rec-batch" placeholder="Batch number" style="font-family:monospace;">'
+    +'<input type="number" class="rec-qty" min="0" step="any" placeholder="Qty" oninput="_reconcileUpdateTotal()">'
+    +'<input type="date" class="rec-expiry">'
+    +'<button type="button" onclick="this.closest(\'div\').remove();_reconcileUpdateTotal();" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;" title="Remove row">✕</button>';
+  document.getElementById('reconcileBatchRows').appendChild(row);
+}
+function _reconcileUpdateTotal(){
+  var rows=document.querySelectorAll('#reconcileBatchRows > div');
+  var sum=0;
+  rows.forEach(function(r){sum+=parseFloat(r.querySelector('.rec-qty').value)||0;});
+  sum=Math.round(sum*100)/100;
+  var bal=getDrugBalance(window._reconcileClinic,window._reconcileDrug).balance;
+  var el=document.getElementById('reconcileBatchTotal');
+  var diff=Math.round((bal-sum)*100)/100;
+  el.innerHTML='Allocated: '+sum+' of '+bal
+    +(diff!==0?' <span style="color:#b7791f;">('+(diff>0?diff+' remaining':(-diff)+' over')+')</span>':' <span style="color:var(--green);">✓ fully allocated</span>');
+}
+function submitReconcileBatches(){
+  var clinic=window._reconcileClinic,drug=window._reconcileDrug;
+  var rows=document.querySelectorAll('#reconcileBatchRows > div');
+  var items=[];
+  var ok=true;
+  rows.forEach(function(r){
+    var batch=(r.querySelector('.rec-batch').value||'').trim();
+    var qty=parseFloat(r.querySelector('.rec-qty').value)||0;
+    var expiry=r.querySelector('.rec-expiry').value;
+    if(!batch&&qty<=0)return; // blank row, skip
+    if(!batch||qty<=0){ok=false;return;}
+    items.push({drug:drug,qty:qty,batch:batch,expiry:expiry});
+  });
+  if(!ok){showToast('Each batch row needs both a batch number and a quantity');return;}
+  if(!items.length){showToast('Enter at least one batch');return;}
+  var bal=getDrugBalance(clinic,drug).balance;
+  var sum=Math.round(items.reduce(function(s,i){return s+i.qty;},0)*100)/100;
+  if(Math.abs(sum-bal)>0.001&&!confirm('Allocated '+sum+' but the expected balance is '+bal+'.\n\nSave anyway? You can attribute the rest later.'))return;
+
+  // Dated at-or-before the last stocktake so it is excluded from the balance
+  // calculation going forward (the units are already counted in that
+  // stocktake's physical count) while still appearing in batch/recall traces.
+  var last=getLastStocktakeForClinic(clinic);
+  var date=last?last.date:new Date().toISOString().split('T')[0];
+  var time=last?last.time:new Date().toTimeString().slice(0,5);
+  saveRecord({
+    type:'Delivery',clinic:clinic,date:date,time:time,
+    supplier:'Opening Stock (Batch Reconciliation)',invoice:'',
+    items:items,by:currentUser.name,
+    reconciliation:true
+  });
+  closeReconcileBatchModal();
+  loadLastStocktake();
+  showToast('✓ Batch info saved for '+drug);
 }
 
 // Totals administered/wasted per drug since the last stocktake — used to
