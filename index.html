@@ -111,6 +111,13 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .drug-row{display:grid;grid-template-columns:200px 80px 80px 80px 80px 1fr 28px;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:white;margin-bottom:6px;font-size:13px;}
 .drug-row.header{background:var(--navy);color:white;font-size:10px;font-weight:700;text-transform:uppercase;border-color:var(--navy);}
 .drug-row input[type="number"]{border:1px solid var(--border);border-radius:5px;padding:5px 7px;font-size:13px;font-family:var(--mono);width:100%;text-align:right;outline:none;}
+.drug-batches{grid-column:1/-1;font-size:11px;color:var(--muted);padding-top:7px;margin-top:3px;border-top:1px dashed var(--border);display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+.batch-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--navy);}
+.batch-chip .bq{font-weight:700;}
+.batch-chip.expired{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
+.batch-chip.soon{background:#fef3c7;border-color:#fcd34d;color:#92400e;}
+.batch-chip.neg{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
+.batch-note{font-size:11px;color:#b7791f;font-weight:600;}
 .drug-field-label{display:none;}
 .stepper{display:flex;align-items:center;gap:6px;}
 .stepper button{width:26px;height:26px;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#f8fafc;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -3505,7 +3512,7 @@ function loadLastStocktake(){
   var container=document.getElementById('drugRows');
   container.innerHTML=allDrugs.map(function(name){
     var t=admTotals[name]||{administered:0,wasted:0};
-    return drugRowHTML(name,lastBalances[name]||0,t.administered,t.wasted);
+    return drugRowHTML(name,lastBalances[name]||0,t.administered,t.wasted,clinic);
   }).join('');
   var admDrugCount=Object.keys(admTotals).length;
   var admBanner=document.getElementById('adminRegisterNote');
@@ -3533,11 +3540,12 @@ function loadLastStocktake(){
     if(!vn.value.trim())vn.value='Opening balances include unprocessed deliveries:\n'+delivNotes.join('\n');
   }else{adjNote.classList.add('hidden');}
 }
-function drugRowHTML(name, openingVal, adminVal, wastedVal){
+function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic){
   var v=parseFloat(openingVal)||0;
   var ad=parseFloat(adminVal)||0;
   var wa=parseFloat(wastedVal)||0;
   var expected=Math.round((v-ad-wa)*100)/100;
+  var cl=clinic||(document.getElementById('stockClinic')?document.getElementById('stockClinic').value:'');
   return '<div class="drug-row" data-drug="'+name+'">'
     +'<div class="drug-name">'+name+'</div>'
     +'<div><span class="drug-field-label">Opening Bal.</span>'+stepperHTML('open-bal',v,0)+'</div>'
@@ -3548,6 +3556,7 @@ function drugRowHTML(name, openingVal, adminVal, wastedVal){
     +'<button type="button" onclick="deleteDrugRow(this)" class="drug-row-delete"'
     +' style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;justify-self:center;"'
     +' title="Remove drug">\uD83D\uDDD1</button>'
+    +batchBreakdownHTML(cl,name,v)
     +'</div>';
 }
 
@@ -3688,6 +3697,79 @@ function getBatchOptionsForDrug(clinic,drug){
     });
   });
   return out;
+}
+
+// Per-batch remaining stock for one drug: what each recorded lot should still
+// have on the shelf (delivered in, less administered and wasted out).
+function getBatchBreakdownForDrug(clinic,drug){
+  var map={};
+  function slot(batch,expiry){
+    if(!map[batch])map[batch]={batch:batch,expiry:expiry||'',qty:0};
+    if(expiry)map[batch].expiry=expiry;
+    return map[batch];
+  }
+  getAllRecords().filter(function(r){return r.clinic===clinic;}).forEach(function(r){
+    if(r.type==='Delivery'){
+      (r.items||[]).forEach(function(it){
+        if(it.drug!==drug||!it.batch)return;
+        slot(it.batch,it.expiry).qty+=parseFloat(it.qty)||0;
+      });
+    }else if(r.type==='Administration'&&r.drug===drug&&r.batch&&!r.voided){
+      slot(r.batch,r.expiry).qty-=(parseFloat(r.qty)||0)+(parseFloat(r.wasted)||0);
+    }
+  });
+  return Object.keys(map).map(function(k){
+    map[k].qty=Math.round(map[k].qty*100)/100;
+    return map[k];
+  }).filter(function(b){return b.qty!==0;})
+    .sort(function(a,b){
+      if(a.expiry&&b.expiry&&a.expiry!==b.expiry)return a.expiry.localeCompare(b.expiry);
+      if(a.expiry&&!b.expiry)return -1;
+      if(!a.expiry&&b.expiry)return 1;
+      return a.batch.localeCompare(b.batch);
+    });
+}
+function _expiryClass(expiry){
+  if(!expiry)return '';
+  var today=new Date().toISOString().split('T')[0];
+  if(expiry<today)return 'expired';
+  var soon=new Date();soon.setDate(soon.getDate()+60);
+  return expiry<=soon.toISOString().split('T')[0]?'soon':'';
+}
+function _expShort(expiry){
+  if(!expiry)return '';
+  var p=String(expiry).split('-');
+  return p.length>=2?(p[1]+'/'+p[0]):expiry;
+}
+// Reference line under a stocktake row: which lots make up the expected
+// balance, flagged for expiry, so a variance can be traced to a batch.
+function batchBreakdownHTML(clinic,drug,opening){
+  if(!clinic)return '';
+  var b=getBatchBreakdownForDrug(clinic,drug);
+  if(!b.length)return '';
+  var total=0,anyExpired=false,anySoon=false,anyNeg=false;
+  var chips=b.map(function(x){
+    total+=x.qty;
+    var cls=x.qty<0?'neg':_expiryClass(x.expiry);
+    if(cls==='expired')anyExpired=true;
+    if(cls==='soon')anySoon=true;
+    if(x.qty<0)anyNeg=true;
+    return '<span class="batch-chip '+cls+'" title="Batch '+x.batch+(x.expiry?' — expires '+x.expiry:'')+'">'
+      +x.batch+' <span class="bq">×'+x.qty+'</span>'
+      +(x.expiry?' <span style="opacity:.75;">'+_expShort(x.expiry)+'</span>':'')
+      +'</span>';
+  }).join('');
+  total=Math.round(total*100)/100;
+  var open=parseFloat(opening)||0;
+  var notes=[];
+  if(anyExpired)notes.push('⚠ expired stock — quarantine and record wastage');
+  else if(anySoon)notes.push('⚠ expiring within 60 days');
+  if(anyNeg)notes.push('⚠ negative batch — check for a missing delivery');
+  if(Math.abs(total-open)>0.001)notes.push('batches total '+total+' vs opening '+open+' — '+Math.round((open-total)*100)/100+' not attributed to a batch');
+  return '<div class="drug-batches"><span style="font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Batches</span>'
+    +chips
+    +(notes.length?'<span class="batch-note">'+notes.join(' · ')+'</span>':'')
+    +'</div>';
 }
 
 // Totals administered/wasted per drug since the last stocktake — used to
