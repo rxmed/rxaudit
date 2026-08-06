@@ -7,6 +7,16 @@
     "site": "rx-audit",
     "public": ".",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "functions/**"],
-    "rewrites": []
+    "rewrites": [],
+    "headers": [
+      {
+        "source": "index.html",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+      },
+      {
+        "source": "/",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+      }
+    ]
   }
 }
