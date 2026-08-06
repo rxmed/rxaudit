@@ -274,6 +274,7 @@ textarea:focus{border-color:var(--teal);}
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Daily Tasks</div>
+      <div class="nav-item" data-page="administer" onclick="showPage('administer')"><span class="nav-icon">💉</span> Administer Drug</div>
       <div class="nav-item" data-page="stocktake" onclick="showPage('stocktake')"><span class="nav-icon">🧮</span> Daily Stocktake</div>
       <div class="nav-item" data-page="checklist" onclick="showPage('checklist')"><span class="nav-icon">✅</span> Compliance Check</div>
       <div class="nav-item" data-page="delivery" onclick="showPage('delivery')"><span class="nav-icon">📦</span> Stock Deliveries</div>
@@ -284,6 +285,7 @@ textarea:focus{border-color:var(--teal);}
     </div>
     <div class="sidebar-section">
       <div class="sidebar-label">Records</div>
+      <div class="nav-item" data-page="recall" onclick="showPage('recall')"><span class="nav-icon">🔍</span> Recall &amp; Tracing</div>
       <div class="nav-item" data-page="log" onclick="showPage('log')"><span class="nav-icon">📋</span> Audit Log</div>
       <div class="nav-item" data-page="reports" onclick="showPage('reports')"><span class="nav-icon">🖨️</span> Print Reports</div>
       <div class="nav-item" data-page="documents" onclick="showPage('documents')"><span class="nav-icon">📁</span> Documents</div>
@@ -299,9 +301,11 @@ textarea:focus{border-color:var(--teal);}
     <!-- Mobile bottom nav bar -->
     <div class="sidebar-section mobile-nav">
       <div class="nav-item" data-page="dashboard" onclick="showPage('dashboard')"><span class="nav-icon">📊</span>Home</div>
+      <div class="nav-item" data-page="administer" onclick="showPage('administer')"><span class="nav-icon">💉</span>Administer</div>
       <div class="nav-item" data-page="stocktake" onclick="showPage('stocktake')"><span class="nav-icon">🧮</span>Stock</div>
       <div class="nav-item" data-page="delivery" onclick="showPage('delivery')"><span class="nav-icon">📦</span>Delivery</div>
       <div class="nav-item" data-page="meeting" onclick="showPage('meeting')"><span class="nav-icon">🗓️</span>Meeting</div>
+      <div class="nav-item" data-page="recall" onclick="showPage('recall')"><span class="nav-icon">🔍</span>Recall</div>
       <div class="nav-item" data-page="log" onclick="showPage('log')"><span class="nav-icon">📋</span>Log</div>
       <div class="nav-item" data-page="documents" onclick="showPage('documents')"><span class="nav-icon">📁</span>Docs</div>
       <div class="nav-item" data-page="reports" onclick="showPage('reports')"><span class="nav-icon">🖨️</span>Reports</div>
@@ -338,6 +342,99 @@ textarea:focus{border-color:var(--teal);}
     </div>
 
     <!-- STOCKTAKE -->
+    <!-- DRUG ADMINISTRATION REGISTER -->
+    <div class="page" id="page-administer">
+      <div class="page-header">
+        <div><div class="page-title">Drug Administration Register</div><div class="page-sub">Record every drug removed from the cupboard — patient, batch &amp; running balance</div></div>
+        <button class="btn btn-ghost" onclick="showPage('dashboard')">← Back</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px;">💉 New Administration Entry</div>
+        <div class="alert-box info"><span>ℹ️</span><div>Complete this <strong>at the time of administration</strong> (contemporaneous record — MPA 2019 s.60). The running balance updates automatically and pre-fills your next stocktake.</div></div>
+        <div class="form-row three">
+          <div class="field"><label>Nurse / Clinic</label><select id="admClinic" onchange="admOnClinicChange()"></select></div>
+          <div class="field"><label>Date</label><input type="date" id="admDate"></div>
+          <div class="field"><label>Time</label><input type="time" id="admTime"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Patient name <span style="color:var(--red);">*</span></label><input type="text" id="admPatient" placeholder="e.g. Jane Smith" autocomplete="off"></div>
+          <div class="field"><label>Patient ID / record no. (optional)</label><input type="text" id="admPatientId" placeholder="e.g. PT-1042"></div>
+        </div>
+        <div class="form-row three">
+          <div class="field"><label>Drug <span style="color:var(--red);">*</span></label><select id="admDrug" onchange="admOnDrugChange()"></select></div>
+          <div class="field">
+            <label>Batch no. <span style="color:var(--red);">*</span></label>
+            <select id="admBatchSel" onchange="admOnBatchChange()" style="margin-bottom:6px;"></select>
+            <input type="text" id="admBatch" class="hidden" placeholder="Type batch number" style="font-family:monospace;">
+          </div>
+          <div class="field"><label>Expiry</label><input type="date" id="admExpiry"></div>
+        </div>
+        <div class="form-row three">
+          <div class="field"><label>Qty administered <span style="color:var(--red);">*</span></label><input type="number" id="admQty" min="0" step="any" value="1" oninput="admUpdateBalance()"></div>
+          <div class="field"><label>Qty wasted / discarded</label><input type="number" id="admWasted" min="0" step="any" value="0" oninput="admUpdateBalance()"></div>
+          <div class="field"><label>Treatment site / indication</label><input type="text" id="admSite" placeholder="e.g. Glabella, 20U"></div>
+        </div>
+        <div class="form-row" id="admWasteRow" style="display:none;">
+          <div class="field"><label>Wastage reason <span style="color:var(--red);">*</span></label><input type="text" id="admWasteReason" placeholder="e.g. Residual volume in vial discarded after single-patient use"></div>
+          <div class="field"><label>Witness (recommended for wastage)</label><input type="text" id="admWitness" placeholder="Name of witnessing staff member"></div>
+        </div>
+
+        <div id="admBalanceBox" style="margin-top:6px;padding:14px 16px;background:var(--bg);border-radius:10px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;">
+          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Balance before</div><div id="admBalBefore" style="font-size:22px;font-weight:700;">—</div></div>
+          <div style="font-size:20px;color:var(--muted);">→</div>
+          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">This entry</div><div id="admBalChange" style="font-size:22px;font-weight:700;color:var(--red);">—</div></div>
+          <div style="font-size:20px;color:var(--muted);">→</div>
+          <div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Balance after</div><div id="admBalAfter" style="font-size:22px;font-weight:700;color:var(--navy);">—</div></div>
+          <div id="admBalSource" style="flex:1;min-width:200px;font-size:11px;color:var(--muted);text-align:right;"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-ghost" onclick="admResetForm()">Clear</button>
+          <button class="btn btn-primary" onclick="submitAdministration()">💉 Record Administration</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px;">📖 Administration Register</div>
+        <div class="form-row three" style="margin-bottom:12px;">
+          <div class="field"><label>Search patient / batch / drug</label><input type="text" id="admFilterText" placeholder="Type to search..." oninput="renderAdminRegister()"></div>
+          <div class="field"><label>From</label><input type="date" id="admFilterFrom" onchange="renderAdminRegister()"></div>
+          <div class="field"><label>To</label><input type="date" id="admFilterTo" onchange="renderAdminRegister()"></div>
+        </div>
+        <div id="admRegisterSummary" style="margin-bottom:10px;"></div>
+        <div id="admRegisterTable"></div>
+      </div>
+    </div>
+
+    <!-- RECALL & CONTACT TRACING -->
+    <div class="page" id="page-recall">
+      <div class="page-header">
+        <div><div class="page-title">Recall &amp; Contact Tracing</div><div class="page-sub">Trace a batch from delivery to every patient it was administered to</div></div>
+        <button class="btn btn-ghost" onclick="showPage('dashboard')">← Back</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px;">🔍 Batch Lookup</div>
+        <div class="alert-box info"><span>ℹ️</span><div>A batch (lot) number identifies a manufacturing run — many vials share the same number, which is exactly how manufacturers issue recalls. Enter or select the affected batch to see every patient treated from it.</div></div>
+        <div class="form-row">
+          <div class="field">
+            <label>Select a known batch</label>
+            <select id="recallBatchSel" onchange="recallPickBatch()"></select>
+          </div>
+          <div class="field">
+            <label>…or type a batch number</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="recallBatch" placeholder="e.g. J1234A" style="flex:1;font-family:monospace;" oninput="runRecallSearch()">
+              <button class="btn btn-primary" onclick="runRecallSearch()">Search</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="recallResults"></div>
+    </div>
+
     <div class="page" id="page-stocktake">
       <div class="page-header">
         <div><div class="page-title">Daily Stocktake</div><div class="page-sub">Complete at opening and closing of each trading day</div></div>
@@ -359,6 +456,7 @@ textarea:focus{border-color:var(--teal);}
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">S4 Drug Physical Count</div>
         <div class="alert-box info"><span>ℹ️</span><div>Opening balances are pre-filled from the last stocktake. Any unprocessed deliveries have been added automatically. Enter the actual physical count for each drug.</div></div>
+        <div id="adminRegisterNote" class="alert-box info hidden"><span>💉</span><div id="adminRegisterNoteText"></div></div>
         <div class="drug-row header">
           <div>Drug / Product</div><div style="text-align:right;">Opening Bal.</div><div style="text-align:right;">Administered</div><div style="text-align:right;">Wasted</div><div style="text-align:right;">Physical Count</div><div>Variance</div>
         </div>
@@ -833,7 +931,7 @@ textarea:focus{border-color:var(--teal);}
       <div class="card" style="padding:14px;">
         <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
           <div class="field" style="flex:1;min-width:140px;"><label>Nurse</label><select id="filterClinic"></select></div>
-          <div class="field" style="flex:1;min-width:120px;"><label>Type</label><select id="filterType"><option value="">All types</option><option>Stocktake</option><option>Delivery</option><option>Compliance</option><option>Meeting</option></select></div>
+          <div class="field" style="flex:1;min-width:120px;"><label>Type</label><select id="filterType"><option value="">All types</option><option>Administration</option><option>Stocktake</option><option>Delivery</option><option>Compliance</option><option>Meeting</option></select></div>
           <div class="field" style="flex:1;min-width:110px;"><label>From</label><input type="date" id="filterFrom"></div>
           <div class="field" style="flex:1;min-width:110px;"><label>To</label><input type="date" id="filterTo"></div>
           <button class="btn btn-primary btn-sm" style="margin-bottom:1px;" onclick="renderLog()">Filter</button>
@@ -856,6 +954,9 @@ textarea:focus{border-color:var(--teal);}
           <div class="field"><label>Period to</label><input type="date" id="rptTo"></div>
         </div>
       </div>
+      <div class="print-option"><div class="print-option-info"><h4>💉 Drug Administration Register</h4><p>Chronological logbook — every dose, patient, batch and running balance. The core audit document.</p></div><button class="btn btn-navy" onclick="exportPDF('administration')">Download PDF</button></div>
+      <div class="print-option"><div class="print-option-info"><h4>🧑‍⚕️ Patient Administration Summary</h4><p>Grouped by patient — what each patient received, when, and from which batch.</p></div><button class="btn btn-navy" onclick="exportPDF('patients')">Download PDF</button></div>
+      <div class="print-option"><div class="print-option-info"><h4>🔍 Batch Traceability Report</h4><p>Every batch: units received, administered, wasted, remaining and patients treated.</p></div><button class="btn btn-navy" onclick="exportPDF('batch')">Download PDF</button></div>
       <div class="print-option"><div class="print-option-info"><h4>📋 Drug Register — Full Audit Report</h4><p>All stocktakes formatted for QLD Health inspection.</p></div><button class="btn btn-navy" onclick="exportPDF('register')">Download PDF</button></div>
       <div class="print-option"><div class="print-option-info"><h4>📦 Stock Delivery Log</h4><p>All deliveries with batch numbers and expiry dates.</p></div><button class="btn btn-navy" onclick="exportPDF('delivery')">Download PDF</button></div>
       <div class="print-option"><div class="print-option-info"><h4>⚠️ Variance &amp; Discrepancy Report</h4><p>All variances with written explanations.</p></div><button class="btn btn-navy" onclick="exportPDF('variance')">Download PDF</button></div>
@@ -3152,6 +3253,8 @@ function showPage(id){
   if(id==='billing')renderBillingPage();
   if(id==='settings'){renderClinics();renderSuppliers();renderOnboardingTemplateEditors();}
   if(id==='stocktake')loadLastStocktake();
+  if(id==='administer')renderAdministerPage();
+  if(id==='recall')renderRecallPage();
   if(id==='delivery'){refreshDeliveryDrugDropdowns();fillSupplierSelect();}
   if(id==='meeting'){buildMeetingAttendees();buildMeetingAgenda();buildMeetingActions();refreshMeetingSignoff();checkMonthlyReminder();}
   if(id==='documents')renderDocumentsPage();
@@ -3383,8 +3486,30 @@ function loadLastStocktake(){
   var allDrugs=[...new Set([...DEFAULT_DRUGS,...lastDrugs])];
   var removed=getRemovedDrugsForClinic(clinic);
   if(removed.length) allDrugs=allDrugs.filter(function(d){return removed.indexOf(d)<0;});
+  // Pull administered/wasted straight from the administration register so the
+  // physical count starts from what the register says it should be.
+  var admTotals=getAdminTotalsSinceLastStocktake(clinic);
+  Object.keys(admTotals).forEach(function(dn){
+    if(allDrugs.indexOf(dn)<0&&removed.indexOf(dn)<0)allDrugs.push(dn);
+  });
   var container=document.getElementById('drugRows');
-  container.innerHTML=allDrugs.map(function(name){return drugRowHTML(name,lastBalances[name]||0);}).join('');
+  container.innerHTML=allDrugs.map(function(name){
+    var t=admTotals[name]||{administered:0,wasted:0};
+    return drugRowHTML(name,lastBalances[name]||0,t.administered,t.wasted);
+  }).join('');
+  var admDrugCount=Object.keys(admTotals).length;
+  var admBanner=document.getElementById('adminRegisterNote');
+  if(admBanner){
+    if(admDrugCount){
+      admBanner.classList.remove('hidden');
+      document.getElementById('adminRegisterNoteText').innerHTML='<strong>Pre-filled from the Administration Register:</strong><br>'
+        +Object.keys(admTotals).map(function(dn){
+          var t=admTotals[dn];
+          return dn+': '+t.administered+' administered'+(t.wasted?', '+t.wasted+' wasted':'');
+        }).join('<br>')
+        +'<br><span style="font-size:12px;">Physical Count is pre-set to the expected balance — adjust it to the actual count on the shelf.</span>';
+    }else{admBanner.classList.add('hidden');}
+  }
   var banner=document.getElementById('lastStocktakeBanner');
   var adjNote=document.getElementById('deliveryAdjustmentNote');
   if(last){
@@ -3398,14 +3523,17 @@ function loadLastStocktake(){
     if(!vn.value.trim())vn.value='Opening balances include unprocessed deliveries:\n'+delivNotes.join('\n');
   }else{adjNote.classList.add('hidden');}
 }
-function drugRowHTML(name, openingVal){
+function drugRowHTML(name, openingVal, adminVal, wastedVal){
   var v=parseFloat(openingVal)||0;
+  var ad=parseFloat(adminVal)||0;
+  var wa=parseFloat(wastedVal)||0;
+  var expected=Math.round((v-ad-wa)*100)/100;
   return '<div class="drug-row" data-drug="'+name+'">'
     +'<div class="drug-name">'+name+'</div>'
     +'<div><span class="drug-field-label">Opening Bal.</span>'+stepperHTML('open-bal',v,0)+'</div>'
-    +'<div><span class="drug-field-label">Administered</span>'+stepperHTML('admin',0,0)+'</div>'
-    +'<div><span class="drug-field-label">Wasted</span>'+stepperHTML('wasted',0,0)+'</div>'
-    +'<div><span class="drug-field-label">Physical Count</span>'+stepperHTML('count',v,0)+'</div>'
+    +'<div><span class="drug-field-label">Administered</span>'+stepperHTML('admin',ad,0)+'</div>'
+    +'<div><span class="drug-field-label">Wasted</span>'+stepperHTML('wasted',wa,0)+'</div>'
+    +'<div><span class="drug-field-label">Physical Count</span>'+stepperHTML('count',expected,0)+'</div>'
     +'<span class="variance ok">\u2713 0</span>'
     +'<button type="button" onclick="deleteDrugRow(this)" class="drug-row-delete"'
     +' style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;justify-self:center;"'
@@ -3502,6 +3630,513 @@ function submitCompliance(){
   checks.forEach(function(cb){cb.checked=false;cb.closest('.check-item').classList.remove('checked');});
   showToast('\u2713 Compliance check saved ('+passed+'/'+checks.length+')');
   setTimeout(function(){showPage('dashboard');},1000);
+}
+
+// ============================================================
+// DRUG ADMINISTRATION REGISTER
+// ============================================================
+function getAdministrations(){
+  var all=(currentUser&&currentUser.role==='nurse')?getRecords():getAllRecords();
+  return all.filter(function(r){return r.type==='Administration';});
+}
+function _ts(r){return (r.date||'')+' '+(r.time||'00:00');}
+
+// Running balance, mirroring the paper register:
+// last physical stocktake count + deliveries since - (administered + wasted) since.
+function getDrugBalance(clinic,drug){
+  var recs=getAllRecords().filter(function(r){return r.clinic===clinic;});
+  var sts=recs.filter(function(r){
+    return r.type==='Stocktake'&&(r.drugs||[]).some(function(d){return d.drug===drug;});
+  }).sort(function(a,b){return _ts(b).localeCompare(_ts(a));});
+  var bal=0,since='',src='No stocktake on file — balance derived from deliveries less administrations.';
+  if(sts.length){
+    var st=sts[0];
+    var d=(st.drugs||[]).filter(function(x){return x.drug===drug;})[0];
+    bal=parseFloat(d&&d.count)||0;
+    since=_ts(st);
+    src='Base: physical count '+bal+' at stocktake '+st.date+(st.time?' '+st.time:'')+'.';
+  }
+  recs.forEach(function(r){
+    if(since&&_ts(r)<=since)return;
+    if(r.type==='Delivery'){
+      (r.items||[]).forEach(function(it){if(it.drug===drug)bal+=parseFloat(it.qty)||0;});
+    }else if(r.type==='Administration'&&r.drug===drug&&!r.voided){
+      bal-=(parseFloat(r.qty)||0)+(parseFloat(r.wasted)||0);
+    }
+  });
+  return {balance:Math.round(bal*100)/100,source:src};
+}
+
+// Batches known for a drug, sourced from recorded deliveries.
+function getBatchOptionsForDrug(clinic,drug){
+  var out=[];
+  getAllRecords().forEach(function(r){
+    if(r.type!=='Delivery'||r.clinic!==clinic)return;
+    (r.items||[]).forEach(function(it){
+      if(it.drug===drug&&it.batch&&!out.some(function(b){return b.batch===it.batch;}))
+        out.push({batch:it.batch,expiry:it.expiry||''});
+    });
+  });
+  return out;
+}
+
+// Totals administered/wasted per drug since the last stocktake — used to
+// pre-fill the stocktake so the register and the count stay reconciled.
+function getAdminTotalsSinceLastStocktake(clinic){
+  var recs=getAllRecords().filter(function(r){return r.clinic===clinic;});
+  var sts=recs.filter(function(r){return r.type==='Stocktake';}).sort(function(a,b){return _ts(b).localeCompare(_ts(a));});
+  var since=sts.length?_ts(sts[0]):'';
+  var totals={};
+  recs.forEach(function(r){
+    if(r.type!=='Administration'||r.voided)return;
+    if(since&&_ts(r)<=since)return;
+    if(!totals[r.drug])totals[r.drug]={administered:0,wasted:0};
+    totals[r.drug].administered+=parseFloat(r.qty)||0;
+    totals[r.drug].wasted+=parseFloat(r.wasted)||0;
+  });
+  return totals;
+}
+
+function renderAdministerPage(){
+  fillClinicSelect('admClinic',false);
+  var now=new Date();
+  var dEl=document.getElementById('admDate'),tEl=document.getElementById('admTime');
+  if(dEl&&!dEl.value)dEl.value=now.toISOString().split('T')[0];
+  if(tEl)tEl.value=now.toTimeString().slice(0,5);
+  admOnClinicChange();
+  renderAdminRegister();
+}
+function admOnClinicChange(){
+  var clinic=document.getElementById('admClinic').value;
+  var sel=document.getElementById('admDrug');
+  var cur=sel.value;
+  sel.innerHTML='<option value="">-- select drug --</option>'+getDeliveryDrugOptions(clinic);
+  if(cur)sel.value=cur;
+  admOnDrugChange();
+}
+function admOnDrugChange(){
+  var clinic=document.getElementById('admClinic').value;
+  var drug=document.getElementById('admDrug').value;
+  var batches=drug?getBatchOptionsForDrug(clinic,drug):[];
+  var sel=document.getElementById('admBatchSel');
+  sel.innerHTML=batches.map(function(b){
+    return '<option value="'+b.batch+'" data-exp="'+(b.expiry||'')+'">'+b.batch+(b.expiry?' — exp '+b.expiry:'')+'</option>';
+  }).join('')+'<option value="__new__">+ Type batch number manually…</option>';
+  if(!batches.length)sel.value='__new__';
+  admOnBatchChange();
+  admUpdateBalance();
+}
+function admOnBatchChange(){
+  var sel=document.getElementById('admBatchSel');
+  var manual=document.getElementById('admBatch');
+  if(sel.value==='__new__'){
+    manual.classList.remove('hidden');
+    if(manual.value&&sel.querySelector('option[value="'+manual.value+'"]'))manual.value='';
+  }else{
+    manual.classList.add('hidden');
+    manual.value=sel.value;
+    var opt=sel.options[sel.selectedIndex];
+    var exp=opt?opt.getAttribute('data-exp'):'';
+    if(exp)document.getElementById('admExpiry').value=exp;
+  }
+}
+function admUpdateBalance(){
+  var clinic=document.getElementById('admClinic').value;
+  var drug=document.getElementById('admDrug').value;
+  var qty=parseFloat(document.getElementById('admQty').value)||0;
+  var wasted=parseFloat(document.getElementById('admWasted').value)||0;
+  document.getElementById('admWasteRow').style.display=wasted>0?'':'none';
+  var bEl=document.getElementById('admBalBefore'),cEl=document.getElementById('admBalChange'),
+      aEl=document.getElementById('admBalAfter'),sEl=document.getElementById('admBalSource');
+  if(!clinic||!drug){bEl.textContent='—';cEl.textContent='—';aEl.textContent='—';sEl.textContent='';return;}
+  var r=getDrugBalance(clinic,drug);
+  var total=Math.round((qty+wasted)*100)/100;
+  var after=Math.round((r.balance-total)*100)/100;
+  bEl.textContent=r.balance;
+  cEl.textContent=total>0?('−'+total):'0';
+  aEl.textContent=after;
+  aEl.style.color=after<0?'var(--red)':'var(--navy)';
+  sEl.innerHTML=r.source+(after<0?'<br><strong style="color:var(--red);">Warning: this takes the balance below zero — check for a missing delivery or stocktake.</strong>':'');
+}
+function admResetForm(){
+  ['admPatient','admPatientId','admSite','admWasteReason','admWitness'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('admQty').value='1';
+  document.getElementById('admWasted').value='0';
+  var t=document.getElementById('admTime');if(t)t.value=new Date().toTimeString().slice(0,5);
+  admUpdateBalance();
+}
+function submitAdministration(){
+  var clinic=document.getElementById('admClinic').value;
+  var patient=(document.getElementById('admPatient').value||'').trim();
+  var drug=document.getElementById('admDrug').value;
+  var batch=(document.getElementById('admBatch').value||'').trim();
+  var qty=parseFloat(document.getElementById('admQty').value)||0;
+  var wasted=parseFloat(document.getElementById('admWasted').value)||0;
+  var wasteReason=(document.getElementById('admWasteReason').value||'').trim();
+  if(!clinic){showToast('Select a nurse / clinic');return;}
+  if(!patient){showToast('Patient name is required');return;}
+  if(!drug){showToast('Select a drug');return;}
+  if(!batch){showToast('Batch number is required');return;}
+  if(qty<=0&&wasted<=0){showToast('Enter a quantity administered or wasted');return;}
+  if(wasted>0&&!wasteReason){showToast('A written wastage reason is required (MPA 2019 s.60)');return;}
+  var after=Math.round((getDrugBalance(clinic,drug).balance-(qty+wasted))*100)/100;
+  if(after<0&&!confirm('This entry takes the recorded balance to '+after+'.\n\nThat usually means a delivery or stocktake has not been entered yet. Record it anyway?'))return;
+  saveRecord({
+    type:'Administration',clinic:clinic,
+    date:document.getElementById('admDate').value,
+    time:document.getElementById('admTime').value,
+    patient:patient,
+    patientId:(document.getElementById('admPatientId').value||'').trim(),
+    drug:drug,batch:batch,
+    expiry:document.getElementById('admExpiry').value,
+    qty:qty,wasted:wasted,wasteReason:wasteReason,
+    witness:(document.getElementById('admWitness').value||'').trim(),
+    site:(document.getElementById('admSite').value||'').trim(),
+    balanceAfter:after,
+    by:currentUser.name,ahpra:currentUser.ahpra||''
+  });
+  admResetForm();
+  renderAdminRegister();
+  showToast('✓ '+drug+' recorded for '+patient+' — balance now '+after);
+}
+function renderAdminRegister(){
+  var el=document.getElementById('admRegisterTable');if(!el)return;
+  var txt=(document.getElementById('admFilterText').value||'').toLowerCase().trim();
+  var from=document.getElementById('admFilterFrom').value;
+  var to=document.getElementById('admFilterTo').value;
+  var list=getAdministrations();
+  if(from)list=list.filter(function(r){return (r.date||'')>=from;});
+  if(to)list=list.filter(function(r){return (r.date||'')<=to;});
+  if(txt)list=list.filter(function(r){
+    return [r.patient,r.patientId,r.drug,r.batch,r.by,r.site].join(' ').toLowerCase().indexOf(txt)>=0;
+  });
+  list=list.slice().sort(function(a,b){return _ts(b).localeCompare(_ts(a));});
+
+  var sum=document.getElementById('admRegisterSummary');
+  if(sum){
+    var tAdm=0,tWas=0,pts={},tVoid=0;
+    list.forEach(function(r){
+      if(r.voided){tVoid++;return;}
+      tAdm+=parseFloat(r.qty)||0;tWas+=parseFloat(r.wasted)||0;
+      if(r.patient)pts[r.patient.toLowerCase()]=1;
+    });
+    sum.innerHTML=list.length
+      ?'<span class="pill blue">'+list.length+' entries</span> '
+       +'<span class="pill green">'+(Math.round(tAdm*100)/100)+' administered</span> '
+       +'<span class="pill amber">'+(Math.round(tWas*100)/100)+' wasted</span> '
+       +'<span class="pill grey">'+Object.keys(pts).length+' patients</span>'
+       +(tVoid?' <span class="pill red">'+tVoid+' voided</span>':'')
+      :'';
+  }
+  if(!list.length){
+    el.innerHTML='<p style="font-size:13px;color:var(--muted);">No administration entries'
+      +(txt||from||to?' match your filters.':' yet. Record the first one using the form above.')+'</p>';
+    return;
+  }
+  var rows=list.map(function(r){
+    var waste=(parseFloat(r.wasted)||0)>0
+      ?'<span class="pill amber" title="'+(r.wasteReason||'').replace(/"/g,'&quot;')+'">'+r.wasted+'</span>':'—';
+    var vd=!!r.voided;
+    return '<tr'+(vd?' style="opacity:.55;"':'')+'>'
+      +'<td style="white-space:nowrap;'+(vd?'text-decoration:line-through;':'')+'">'+(r.date||'')+'<br><span style="color:var(--muted);font-size:11px;">'+(r.time||'')+'</span></td>'
+      +'<td'+(vd?' style="text-decoration:line-through;"':'')+'><strong>'+(r.patient||'')+'</strong>'+(r.patientId?'<br><span style="color:var(--muted);font-size:11px;">'+r.patientId+'</span>':'')+'</td>'
+      +'<td'+(vd?' style="text-decoration:line-through;"':'')+'>'+(r.drug||'')+(r.site?'<br><span style="color:var(--muted);font-size:11px;">'+r.site+'</span>':'')+'</td>'
+      +'<td style="font-family:monospace;font-size:12px;'+(vd?'text-decoration:line-through;':'')+'">'+(r.batch||'')+(r.expiry?'<br><span style="color:var(--muted);">exp '+r.expiry+'</span>':'')+'</td>'
+      +'<td style="text-align:right;'+(vd?'text-decoration:line-through;':'')+'">'+(r.qty||0)+'</td>'
+      +'<td style="text-align:center;">'+(vd?'—':waste)+'</td>'
+      +'<td style="text-align:right;font-weight:600;">'+(vd?'—':(r.balanceAfter!=null?r.balanceAfter:'—'))+'</td>'
+      +'<td style="font-size:12px;">'+(r.by||'')+(r.witness?'<br><span style="color:var(--muted);font-size:11px;">W: '+r.witness+'</span>':'')+'</td>'
+      +'<td style="text-align:right;">'+(vd
+        ?'<span class="pill red" title="'+String(r.voidReason||'').replace(/"/g,'&quot;')+' — voided by '+String(r.voidedBy||'').replace(/"/g,'&quot;')+'">VOID</span>'
+        :'<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="voidAdministration('+r.id+')">Void</button>')+'</td>'
+      +'</tr>';
+  }).join('');
+  el.innerHTML='<div class="table-scroll"><table class="table"><thead><tr>'
+    +'<th>Date / Time</th><th>Patient</th><th>Drug</th><th>Batch</th>'
+    +'<th style="text-align:right;">Given</th><th style="text-align:center;">Wasted</th>'
+    +'<th style="text-align:right;">Bal.</th><th>Nurse</th><th></th>'
+    +'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+// Apply a patch to one record, merging transactionally so a concurrent write
+// from another device is not clobbered by a stale local list.
+function _patchRecord(id,patch){
+  function apply(list){
+    return list.map(function(r){
+      if(r.id!==id)return r;
+      var out={};
+      Object.keys(r).forEach(function(k){out[k]=r[k];});
+      Object.keys(patch).forEach(function(k){out[k]=patch[k];});
+      return out;
+    });
+  }
+  var local=apply(getAllRecords());
+  _cache.records=local;
+  localStorage.setItem('rxaudit_records',JSON.stringify(local));
+  if(!_fbReady||!_db)return;
+  var ref=_db.collection('data').doc('records');
+  _db.runTransaction(function(tx){
+    return tx.get(ref).then(function(doc){
+      var list=apply(doc.exists?(doc.data().list||[]):[]);
+      tx.set(ref,{list:list});
+      return list;
+    });
+  }).then(function(list){
+    _cache.records=list;
+    localStorage.setItem('rxaudit_records',JSON.stringify(list));
+  }).catch(function(e){console.warn('FB patch records:',e);});
+}
+
+// A drug register is a legal record — entries are never erased. A mistaken
+// entry is voided with a written reason and stays visible in the audit trail.
+function voidAdministration(id){
+  var rec=getAllRecords().filter(function(r){return r.id===id;})[0];
+  if(!rec)return;
+  if(rec.voided){showToast('That entry is already voided');return;}
+  var reason=prompt('Void this entry — '+rec.drug+' for '+rec.patient+' on '+rec.date+'.\n\n'
+    +'The entry is NOT deleted: it stays in the register marked "VOID" with your name and reason, '
+    +'and is excluded from balances and recall tracing.\n\nReason for voiding (required):');
+  if(reason===null)return;
+  reason=String(reason).trim();
+  if(!reason){showToast('A written reason is required to void an entry');return;}
+  _patchRecord(id,{voided:true,voidReason:reason,voidedBy:currentUser.name,voidedAt:new Date().toISOString()});
+  renderAdminRegister();
+  showToast('Entry voided — it remains in the audit trail');
+}
+
+// ============================================================
+// RECALL & CONTACT TRACING
+// ============================================================
+// A batch (lot) number covers a whole manufacturing run, so many vials share
+// one — that is the unit manufacturers recall against, and the unit we trace.
+function getAllBatches(){
+  var map={};
+  function slot(batch,drug,clinic,expiry){
+    if(!map[batch])map[batch]={batch:batch,drugs:{},clinics:{},received:0,expiry:expiry||''};
+    if(drug)map[batch].drugs[drug]=1;
+    if(clinic)map[batch].clinics[clinic]=1;
+    if(expiry)map[batch].expiry=expiry;
+    return map[batch];
+  }
+  getAllRecords().forEach(function(r){
+    if(r.type==='Delivery'){
+      (r.items||[]).forEach(function(it){
+        if(!it.batch)return;
+        slot(it.batch,it.drug,r.clinic,it.expiry).received+=parseFloat(it.qty)||0;
+      });
+    }else if(r.type==='Administration'&&r.batch){
+      slot(r.batch,r.drug,r.clinic,r.expiry);
+    }
+  });
+  return Object.keys(map).map(function(k){return map[k];})
+    .sort(function(a,b){return a.batch.localeCompare(b.batch);});
+}
+function renderRecallPage(){
+  var sel=document.getElementById('recallBatchSel');
+  if(!sel)return;
+  var batches=getAllBatches();
+  sel.innerHTML='<option value="">-- select a batch --</option>'+batches.map(function(b){
+    var drugs=Object.keys(b.drugs).join(', ');
+    return '<option value="'+b.batch.replace(/"/g,'&quot;')+'">'+b.batch+(drugs?' — '+drugs:'')+'</option>';
+  }).join('');
+  runRecallSearch();
+}
+function recallPickBatch(){
+  var v=document.getElementById('recallBatchSel').value;
+  if(v){document.getElementById('recallBatch').value=v;runRecallSearch();}
+}
+function findByBatch(batch){
+  var q=String(batch||'').trim().toLowerCase();
+  var all=getAllRecords();
+  var deliveries=[],admins=[];
+  all.forEach(function(r){
+    if(r.type==='Delivery'){
+      (r.items||[]).forEach(function(it){
+        if(it.batch&&it.batch.toLowerCase()===q)deliveries.push({rec:r,item:it});
+      });
+    }else if(r.type==='Administration'&&r.batch&&r.batch.toLowerCase()===q){
+      admins.push(r);
+    }
+  });
+  admins.sort(function(a,b){return _ts(a).localeCompare(_ts(b));});
+  deliveries.sort(function(a,b){return _ts(a.rec).localeCompare(_ts(b.rec));});
+  return {deliveries:deliveries,admins:admins};
+}
+function runRecallSearch(){
+  var el=document.getElementById('recallResults');
+  if(!el)return;
+  var batch=(document.getElementById('recallBatch').value||'').trim();
+  if(!batch){el.innerHTML='';return;}
+  var res=findByBatch(batch);
+  var d=res.deliveries,a=res.admins;
+
+  if(!d.length&&!a.length){
+    var near=getAllBatches().filter(function(b){return b.batch.toLowerCase().indexOf(batch.toLowerCase())>=0;});
+    el.innerHTML='<div class="card"><div class="alert-box warn"><span>⚠️</span><div>'
+      +'<strong>No records found for batch "'+batch+'".</strong><br>'
+      +(near.length?'Did you mean: '+near.map(function(b){
+          return '<a href="#" onclick="document.getElementById(\'recallBatch\').value=\''+b.batch+'\';runRecallSearch();return false;"><strong>'+b.batch+'</strong></a>';
+        }).join(', ')
+        :'This batch has not been recorded in any delivery or administration.')
+      +'</div></div></div>';
+    return;
+  }
+
+  var received=0,expiry='',drugs={},suppliers={},clinics={};
+  d.forEach(function(x){
+    received+=parseFloat(x.item.qty)||0;
+    if(x.item.expiry)expiry=x.item.expiry;
+    if(x.item.drug)drugs[x.item.drug]=1;
+    if(x.rec.supplier)suppliers[x.rec.supplier]=1;
+    if(x.rec.clinic)clinics[x.rec.clinic]=1;
+  });
+  var given=0,wasted=0,patients={},voidedCount=0;
+  a.forEach(function(r){
+    if(r.drug)drugs[r.drug]=1;
+    if(r.clinic)clinics[r.clinic]=1;
+    if(r.voided){voidedCount++;return;}
+    given+=parseFloat(r.qty)||0;
+    wasted+=parseFloat(r.wasted)||0;
+    if(r.patient){
+      var k=r.patient.toLowerCase();
+      if(!patients[k])patients[k]={name:r.patient,id:r.patientId||'',doses:0,dates:[],clinic:r.clinic};
+      patients[k].doses+=parseFloat(r.qty)||0;
+      patients[k].dates.push(r.date);
+      if(r.patientId)patients[k].id=r.patientId;
+    }
+  });
+  var ptList=Object.keys(patients).map(function(k){return patients[k];});
+  var remaining=Math.round((received-given-wasted)*100)/100;
+  var drugStr=Object.keys(drugs).join(', ')||'—';
+
+  function stat(label,value,color){
+    return '<div style="flex:1;min-width:120px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">'+label+'</div>'
+      +'<div style="font-size:24px;font-weight:700;'+(color?'color:'+color+';':'')+'">'+value+'</div></div>';
+  }
+
+  var html='<div class="card">'
+    +'<div class="card-title" style="margin-bottom:6px;">Batch <span style="font-family:monospace;">'+batch+'</span> — '+drugStr+'</div>'
+    +'<p style="font-size:13px;color:var(--muted);margin-bottom:14px;">'
+    +'Supplier: '+(Object.keys(suppliers).join(', ')||'—')
+    +' &nbsp;|&nbsp; Expiry: '+(expiry||'—')
+    +' &nbsp;|&nbsp; Clinic(s): '+(Object.keys(clinics).join(', ')||'—')+'</p>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:18px;padding:14px 16px;background:var(--bg);border-radius:10px;">'
+    +stat('Units received',received)
+    +stat('Administered',given)
+    +stat('Wasted',wasted)
+    +stat('Still on shelf',remaining,remaining>0?'var(--red)':'')
+    +stat('Patients affected',ptList.length,ptList.length?'var(--red)':'')
+    +'</div>'
+    +(remaining>0?'<div class="alert-box warn" style="margin-top:14px;margin-bottom:0;"><span>⚠️</span><div><strong>'+remaining+' unit(s) of this batch may still be in stock.</strong> Quarantine remaining stock immediately and follow the supplier’s recall instructions.</div></div>':'')
+    +'</div>';
+
+  if(ptList.length){
+    html+='<div class="card">'
+      +'<div class="card-title" style="margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;">'
+      +'<span>📞 Patients to Contact ('+ptList.length+')</span>'
+      +'<button class="btn btn-navy" style="padding:6px 14px;font-size:12px;" onclick="exportRecallPDF()">Download Contact List PDF</button>'
+      +'</div>'
+      +'<div class="table-scroll"><table class="table"><thead><tr><th>Patient</th><th>Patient ID</th><th>Clinic</th><th style="text-align:right;">Total units</th><th>Treatment date(s)</th></tr></thead><tbody>'
+      +ptList.map(function(p){
+        return '<tr><td><strong>'+p.name+'</strong></td><td>'+(p.id||'—')+'</td><td>'+(p.clinic||'—')+'</td>'
+          +'<td style="text-align:right;">'+p.doses+'</td><td>'+p.dates.join(', ')+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+
+    html+='<div class="card"><div class="card-title" style="margin-bottom:14px;">💉 Full Administration Trail ('+a.length+' entries'+(voidedCount?', '+voidedCount+' voided':'')+')</div>'
+      +'<div class="table-scroll"><table class="table"><thead><tr><th>Date / Time</th><th>Patient</th><th>Drug</th><th style="text-align:right;">Given</th><th style="text-align:center;">Wasted</th><th>Site</th><th>Nurse</th></tr></thead><tbody>'
+      +a.map(function(r){
+        var vs=r.voided?'opacity:.55;text-decoration:line-through;':'';
+        return '<tr style="'+vs+'"><td style="white-space:nowrap;">'+(r.date||'')+' <span style="color:var(--muted);font-size:11px;">'+(r.time||'')+'</span></td>'
+          +'<td><strong>'+(r.patient||'')+'</strong>'+(r.patientId?' <span style="color:var(--muted);font-size:11px;">('+r.patientId+')</span>':'')
+          +(r.voided?' <span class="pill red" style="text-decoration:none;">VOID</span>':'')+'</td>'
+          +'<td>'+(r.drug||'')+'</td><td style="text-align:right;">'+(r.qty||0)+'</td>'
+          +'<td style="text-align:center;">'+((parseFloat(r.wasted)||0)>0?r.wasted:'—')+'</td>'
+          +'<td style="font-size:12px;">'+(r.site||'—')+'</td><td style="font-size:12px;">'+(r.by||'')+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+  }else{
+    html+='<div class="card"><div class="alert-box info"><span>✅</span><div><strong>No patients were treated from this batch.</strong> It was received but has no recorded administrations.</div></div></div>';
+  }
+
+  if(d.length){
+    html+='<div class="card"><div class="card-title" style="margin-bottom:14px;">📦 Delivery Source</div>'
+      +'<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Clinic</th><th>Supplier</th><th>Invoice</th><th>Drug</th><th style="text-align:right;">Qty</th><th>Expiry</th><th>Received by</th></tr></thead><tbody>'
+      +d.map(function(x){
+        return '<tr><td>'+(x.rec.date||'')+'</td><td>'+(x.rec.clinic||'')+'</td><td>'+(x.rec.supplier||'—')+'</td>'
+          +'<td>'+(x.rec.invoice||'—')+'</td><td>'+(x.item.drug||'')+'</td>'
+          +'<td style="text-align:right;">'+(x.item.qty||0)+'</td><td>'+(x.item.expiry||'—')+'</td><td>'+(x.rec.by||'')+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+  }
+  el.innerHTML=html;
+}
+
+function exportRecallPDF(){
+  var batch=(document.getElementById('recallBatch').value||'').trim();
+  if(!batch){showToast('Enter a batch number first');return;}
+  var res=findByBatch(batch);
+  if(!res.admins.length&&!res.deliveries.length){showToast('Nothing to export for that batch');return;}
+  var s=getSettings();
+  var doc=new window.jspdf.jsPDF('p','mm','a4');
+  var now=new Date().toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'});
+  doc.setFillColor(15,31,61);doc.rect(0,0,210,28,'F');
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(14);
+  doc.text('RX·AUDIT — Batch Recall & Contact Tracing',14,12);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');
+  doc.text('Queensland Health — Medicines and Poisons Act 2019',14,20);
+  doc.text('Generated: '+now+'  |  RDP: '+s.rdpName+'  |  AHPRA: '+s.rdpAhpra,14,26);
+  doc.setTextColor(0,0,0);
+  var y=38;
+  doc.setFont('helvetica','bold');doc.setFontSize(13);
+  doc.text('Batch '+batch,14,y);y+=7;
+
+  var received=0,drugs={},suppliers={},expiry='';
+  res.deliveries.forEach(function(x){
+    received+=parseFloat(x.item.qty)||0;
+    if(x.item.drug)drugs[x.item.drug]=1;
+    if(x.rec.supplier)suppliers[x.rec.supplier]=1;
+    if(x.item.expiry)expiry=x.item.expiry;
+  });
+  var given=0,wasted=0,patients={};
+  res.admins.forEach(function(r){
+    if(r.drug)drugs[r.drug]=1;
+    if(r.voided)return;
+    given+=parseFloat(r.qty)||0;wasted+=parseFloat(r.wasted)||0;
+    if(r.patient){
+      var k=r.patient.toLowerCase();
+      if(!patients[k])patients[k]={name:r.patient,id:r.patientId||'',clinic:r.clinic||'',doses:0,dates:[]};
+      patients[k].doses+=parseFloat(r.qty)||0;patients[k].dates.push(r.date);
+      if(r.patientId)patients[k].id=r.patientId;
+    }
+  });
+  var ptList=Object.keys(patients).map(function(k){return patients[k];});
+  doc.setFont('helvetica','normal');doc.setFontSize(10);
+  doc.text('Product: '+(Object.keys(drugs).join(', ')||'—')+'    Supplier: '+(Object.keys(suppliers).join(', ')||'—')+'    Expiry: '+(expiry||'—'),14,y);y+=6;
+  doc.text('Received: '+received+'    Administered: '+given+'    Wasted: '+wasted+'    Remaining on shelf: '+(Math.round((received-given-wasted)*100)/100),14,y);y+=6;
+  doc.setFont('helvetica','bold');
+  doc.text('Patients requiring contact: '+ptList.length,14,y);y+=8;
+  doc.setFont('helvetica','normal');
+
+  function table(title,head,body){
+    if(!body.length)return;
+    if(y>250){doc.addPage();y=20;}
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(title,14,y);y+=4;
+    doc.autoTable({startY:y,head:[head],body:body,styles:{fontSize:8,cellPadding:2},
+      headStyles:{fillColor:[15,31,61],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
+    y=doc.lastAutoTable.finalY+10;
+  }
+  table('PATIENTS TO CONTACT',['Patient','Patient ID','Clinic','Units','Treatment date(s)','Contacted (✓)'],
+    ptList.map(function(p){return [p.name,p.id||'—',p.clinic||'—',String(p.doses),p.dates.join(', '),'']; }));
+  table('FULL ADMINISTRATION TRAIL',['Date','Time','Clinic','Patient','Drug','Given','Wasted','Site','Nurse','Status'],
+    res.admins.map(function(r){return [r.date||'',r.time||'',r.clinic||'',r.patient||'',r.drug||'',String(r.qty||0),String(r.wasted||0),r.site||'—',r.by||'',r.voided?'VOID':''];}));
+  table('DELIVERY SOURCE',['Date','Clinic','Supplier','Invoice','Drug','Qty','Expiry','Received by'],
+    res.deliveries.map(function(x){return [x.rec.date||'',x.rec.clinic||'',x.rec.supplier||'—',x.rec.invoice||'—',x.item.drug||'',String(x.item.qty||0),x.item.expiry||'—',x.rec.by||''];}));
+
+  doc.save('Recall_Batch_'+batch.replace(/[^A-Za-z0-9_-]/g,'')+'.pdf');
+  showToast('Contact list downloaded');
 }
 
 // ============================================================
@@ -4220,13 +4855,16 @@ function renderLog(){
     if(r.type==='Delivery')detail=(r.supplier||'')+(r.attachment?' \ud83d\udcce':'');
     if(r.type==='Compliance')detail=r.checksPassed+'/'+r.checksTotal+' passed';
     if(r.type==='Meeting')detail=r.period||'';
-    var tc=r.type==='Stocktake'?'blue':r.type==='Delivery'?'green':r.type==='Meeting'?'purple':'amber';
+    if(r.type==='Administration')detail=(r.drug||'')+' ×'+(r.qty||0)+(r.batch?' — batch '+r.batch:'');
+    var tc=r.type==='Stocktake'?'blue':r.type==='Delivery'?'green':r.type==='Meeting'?'purple':r.type==='Administration'?'teal':'amber';
     return '<tr><td style="font-family:monospace;font-size:11px;">'+r.date+'</td><td style="font-family:monospace;font-size:11px;">'+r.time+'</td><td>'+r.clinic+'</td>'
       +'<td><span class="pill '+tc+'">'+r.type+'</span></td>'
       +'<td style="font-size:12px;color:var(--muted);">'+detail+'</td>'
       +'<td>'+(r.by||'\u2014')+'</td>'
       +'<td>'+(r.hasVariance?'<span class="pill red">\u26a0 Variance</span>':'<span class="pill green">\u2713 OK</span>')+'</td>'
-      +'<td style="font-size:12px;color:var(--muted);">'+(r.patientNote?r.patientNote.replace(/</g,'&lt;'):'\u2014')+'</td></tr>';
+      +'<td style="font-size:12px;color:var(--muted);">'+(r.type==='Administration'
+          ?((r.patient||'\u2014')+(r.patientId?' ('+r.patientId+')':'')).replace(/</g,'&lt;')
+          :(r.patientNote?r.patientNote.replace(/</g,'&lt;'):'\u2014'))+'</td></tr>';
   }).join('');
   el.innerHTML='<table class="table"><thead><tr><th>Date</th><th>Time</th><th>Clinic</th><th>Type</th><th>Details</th><th>By</th><th>Status</th><th>Patient / Notes</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
@@ -4257,7 +4895,7 @@ function exportPDF(reportType){
   doc.text('Generated: '+now+'  |  RDP: '+s.rdpName+'  |  AHPRA: '+s.rdpAhpra,14,26);
   doc.setTextColor(0,0,0);
   var y=36;
-  var titles={register:'Drug Register \u2014 Full Audit Report',delivery:'Stock Delivery Log',variance:'Variance & Discrepancy Report',compliance:'Compliance Check History',meetings:'Audit Meeting Minutes',keys:'S4 Key Holder Agreements',onboarding:'Onboarding Agreements',all:'Full Audit Package'};
+  var titles={register:'Drug Register \u2014 Full Audit Report',delivery:'Stock Delivery Log',variance:'Variance & Discrepancy Report',compliance:'Compliance Check History',meetings:'Audit Meeting Minutes',keys:'S4 Key Holder Agreements',onboarding:'Onboarding Agreements',administration:'Drug Administration Register',patients:'Patient Administration Summary',batch:'Batch Traceability Report',all:'Full Audit Package'};
   doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(titles[reportType]||'Report',14,y);y+=6;
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,100,100);
   doc.text('Clinic: '+clinicStr+'   Period: '+periodStr,14,y);doc.setTextColor(0,0,0);y+=8;
@@ -4267,6 +4905,104 @@ function exportPDF(reportType){
     doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(title,14,y);y+=4;
     doc.autoTable({startY:y,head:[cols.map(function(c){return c.header;})],body:data.map(function(r){return cols.map(function(c){return String(c.get(r)!=null?c.get(r):'\u2014');});}),styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[15,31,61],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[245,248,252]},margin:{left:14,right:14}});
     y=doc.lastAutoTable.finalY+10;
+  }
+  if(reportType==='administration'||reportType==='all'){
+    var adRows=records.filter(function(r){return r.type==='Administration';})
+      .slice().sort(function(a,b){return _ts(a).localeCompare(_ts(b));});
+    addSection('DRUG ADMINISTRATION REGISTER',adRows,[
+      {header:'Date',get:function(r){return r.date;}},
+      {header:'Time',get:function(r){return r.time;}},
+      {header:'Clinic',get:function(r){return r.clinic;}},
+      {header:'Patient',get:function(r){return r.patient;}},
+      {header:'Patient ID',get:function(r){return r.patientId||'';}},
+      {header:'Drug',get:function(r){return r.drug;}},
+      {header:'Batch',get:function(r){return r.batch;}},
+      {header:'Expiry',get:function(r){return r.expiry||'';}},
+      {header:'Given',get:function(r){return r.qty;}},
+      {header:'Wasted',get:function(r){return r.wasted||0;}},
+      {header:'Balance',get:function(r){return r.balanceAfter;}},
+      {header:'Site',get:function(r){return r.site||'';}},
+      {header:'Nurse',get:function(r){return r.by;}},
+      {header:'Status',get:function(r){return r.voided?('VOID — '+(r.voidReason||'')+' ('+(r.voidedBy||'')+')'):'';}}
+    ],reportType==='all');
+    var wRows=adRows.filter(function(r){return (parseFloat(r.wasted)||0)>0&&!r.voided;});
+    addSection('WASTAGE RECORD — WRITTEN EXPLANATIONS (MPA 2019 s.60)',wRows,[
+      {header:'Date',get:function(r){return r.date;}},
+      {header:'Clinic',get:function(r){return r.clinic;}},
+      {header:'Drug',get:function(r){return r.drug;}},
+      {header:'Batch',get:function(r){return r.batch;}},
+      {header:'Qty wasted',get:function(r){return r.wasted;}},
+      {header:'Reason',get:function(r){return r.wasteReason||'No reason recorded';}},
+      {header:'Witness',get:function(r){return r.witness||'—';}},
+      {header:'Nurse',get:function(r){return r.by;}}
+    ]);
+  }
+  if(reportType==='patients'||reportType==='all'){
+    var byPt={};
+    records.filter(function(r){return r.type==='Administration'&&!r.voided;}).forEach(function(r){
+      var k=(r.patient||'Unnamed').toLowerCase();
+      if(!byPt[k])byPt[k]={name:r.patient||'Unnamed',id:r.patientId||'',clinic:r.clinic||'',rows:[],total:0};
+      if(r.patientId)byPt[k].id=r.patientId;
+      byPt[k].rows.push(r);
+      byPt[k].total+=parseFloat(r.qty)||0;
+    });
+    var ptRows=[];
+    Object.keys(byPt).sort().forEach(function(k){
+      var p=byPt[k];
+      p.rows.sort(function(a,b){return _ts(a).localeCompare(_ts(b));}).forEach(function(r,i){
+        ptRows.push({
+          pt:i===0?p.name:'',ptId:i===0?(p.id||''):'',
+          date:r.date,time:r.time,clinic:r.clinic,drug:r.drug,batch:r.batch,
+          exp:r.expiry||'',qty:r.qty,site:r.site||'',by:r.by
+        });
+      });
+    });
+    addSection('PATIENT ADMINISTRATION SUMMARY',ptRows,[
+      {header:'Patient',get:function(r){return r.pt;}},
+      {header:'Patient ID',get:function(r){return r.ptId;}},
+      {header:'Date',get:function(r){return r.date;}},
+      {header:'Time',get:function(r){return r.time;}},
+      {header:'Clinic',get:function(r){return r.clinic;}},
+      {header:'Drug',get:function(r){return r.drug;}},
+      {header:'Batch',get:function(r){return r.batch;}},
+      {header:'Expiry',get:function(r){return r.exp;}},
+      {header:'Units',get:function(r){return r.qty;}},
+      {header:'Site',get:function(r){return r.site;}},
+      {header:'Nurse',get:function(r){return r.by;}}
+    ],reportType==='all');
+  }
+  if(reportType==='batch'||reportType==='all'){
+    var bt={};
+    function bslot(b,drug,clinic,exp){
+      if(!bt[b])bt[b]={batch:b,drug:drug||'',clinic:clinic||'',expiry:exp||'',recv:0,given:0,wasted:0,pts:{}};
+      if(drug&&!bt[b].drug)bt[b].drug=drug;
+      if(exp)bt[b].expiry=exp;
+      return bt[b];
+    }
+    records.forEach(function(r){
+      if(r.type==='Delivery'){
+        (r.items||[]).forEach(function(it){
+          if(it.batch)bslot(it.batch,it.drug,r.clinic,it.expiry).recv+=parseFloat(it.qty)||0;
+        });
+      }else if(r.type==='Administration'&&r.batch&&!r.voided){
+        var e=bslot(r.batch,r.drug,r.clinic,r.expiry);
+        e.given+=parseFloat(r.qty)||0;
+        e.wasted+=parseFloat(r.wasted)||0;
+        if(r.patient)e.pts[r.patient.toLowerCase()]=1;
+      }
+    });
+    var btRows=Object.keys(bt).sort().map(function(k){return bt[k];});
+    addSection('BATCH TRACEABILITY REPORT',btRows,[
+      {header:'Batch',get:function(r){return r.batch;}},
+      {header:'Drug',get:function(r){return r.drug;}},
+      {header:'Clinic',get:function(r){return r.clinic;}},
+      {header:'Expiry',get:function(r){return r.expiry||'—';}},
+      {header:'Received',get:function(r){return r.recv;}},
+      {header:'Administered',get:function(r){return r.given;}},
+      {header:'Wasted',get:function(r){return r.wasted;}},
+      {header:'Remaining',get:function(r){return Math.round((r.recv-r.given-r.wasted)*100)/100;}},
+      {header:'Patients',get:function(r){return Object.keys(r.pts).length;}}
+    ],reportType==='all');
   }
   if(reportType==='register'||reportType==='all'){
     var stRows=[];
