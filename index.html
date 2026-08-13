@@ -121,6 +121,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .batch-note{font-size:11px;color:#b7791f;font-weight:600;}
 .reconcile-batch-row{display:grid;grid-template-columns:1fr 90px 130px 28px;gap:8px;align-items:center;}
 .reconcile-batch-row input{border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;width:100%;outline:none;font-family:'Inter',sans-serif;}
+.edit-delivery-row{display:grid;grid-template-columns:1fr 70px 120px 120px 28px;gap:8px;align-items:center;}
+.edit-delivery-row input,.edit-delivery-row select{border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;width:100%;min-width:0;outline:none;font-family:'Inter',sans-serif;box-sizing:border-box;}
 .drug-field-label{display:none;}
 .stepper{display:flex;align-items:center;gap:6px;}
 .stepper button{width:26px;height:26px;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#f8fafc;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
@@ -230,6 +232,8 @@ textarea:focus{border-color:var(--teal);}
   .delivery-drug-row .del-row-btn{align-self:flex-end;width:auto;padding:4px 12px;border:1px solid var(--red);border-radius:6px;color:var(--red);background:transparent;font-size:12px;}
   .reconcile-batch-row{grid-template-columns:1fr;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--bg);}
   .reconcile-batch-row button{justify-self:end;width:auto;padding:4px 12px;border:1px solid var(--red);border-radius:6px;background:transparent;font-size:12px;}
+  .edit-delivery-row{grid-template-columns:1fr;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--bg);}
+  .edit-delivery-row button{justify-self:end;width:auto;padding:4px 12px;border:1px solid var(--red);border-radius:6px;background:transparent;font-size:12px;}
   .print-option{flex-direction:column;align-items:flex-start;}
   .modal{width:95vw;padding:20px;}
   .table{font-size:11px;}
@@ -585,7 +589,7 @@ textarea:focus{border-color:var(--teal);}
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Delivery Details</div>
         <div class="form-row three">
-          <div class="field"><label>Nurse / Clinic</label><select id="delivClinic" onchange="refreshDeliveryDrugDropdowns();fillSupplierSelect();"></select></div>
+          <div class="field"><label>Nurse / Clinic</label><select id="delivClinic" onchange="refreshDeliveryDrugDropdowns();fillSupplierSelect();renderRecentDeliveries();"></select></div>
           <div class="field"><label>Supplier</label><select id="delivSupplier"></select></div>
           <div class="field"><label>Invoice / Order number</label><input type="text" id="delivInvoice" placeholder="INV-2024-XXXXX"></div>
         </div>
@@ -631,6 +635,12 @@ textarea:focus{border-color:var(--teal);}
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button class="btn btn-primary" onclick="submitDelivery()">Record delivery ✓</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:6px;">📖 Recent Deliveries</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Made an entry error, or entered a delivery twice by mistake? Edit or void it here — corrections update the stock count and batch records immediately.</p>
+        <div id="recentDeliveriesTable"></div>
       </div>
     </div>
 
@@ -1167,6 +1177,29 @@ textarea:focus{border-color:var(--teal);}
   </div>
 </div>
 
+<!-- EDIT DELIVERY (fix a mis-entered quantity/batch, or a duplicate line) -->
+<div class="modal-overlay" id="editDeliveryModal">
+  <div class="modal" style="width:min(640px,96vw);">
+    <div class="modal-title">✏️ Edit Delivery</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;" id="editDeliveryIntro"></p>
+    <div class="form-row">
+      <div class="field"><label>Supplier</label><input type="text" id="editDelivSupplier"></div>
+      <div class="field"><label>Invoice / order number</label><input type="text" id="editDelivInvoice"></div>
+    </div>
+    <div class="field" style="margin-bottom:10px;"><label>Delivery date</label><input type="date" id="editDelivDate"></div>
+    <div style="display:grid;grid-template-columns:1fr 70px 120px 120px 28px;gap:8px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);padding:0 4px;margin-bottom:6px;">
+      <div>Drug</div><div>Qty</div><div>Batch No.</div><div>Expiry</div><div></div>
+    </div>
+    <div id="editDeliveryRows" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addEditDeliveryRow()">+ Add another drug</button>
+    <div class="field" style="margin-top:14px;"><label>Reason for this edit (kept in the audit trail)</label><input type="text" id="editDeliveryReason" placeholder="e.g. Entered twice by mistake — corrected quantity"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditDeliveryModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditedDelivery()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- RECONCILE OPENING BATCHES (attribute existing shelf stock to batch numbers) -->
 <div class="modal-overlay" id="reconcileBatchModal">
   <div class="modal" style="width:min(560px,96vw);">
@@ -1615,6 +1648,25 @@ function addPending(clinic, drug, qty, refId, date){
 }
 function clearPendingForClinic(clinic){
   savePending(getPending().filter(function(p){return p.clinic!==clinic;}));
+}
+// Recomputes the "unprocessed delivery" queue for a clinic from scratch,
+// from whichever Delivery records are still active (not voided) and dated
+// after the last stocktake. Called after editing or voiding a delivery so
+// a correction is reflected in the next stocktake's pre-fill, not just in
+// the balance maths.
+function rebuildPendingForClinic(clinic){
+  var last=getLastStocktakeForClinic(clinic);
+  var since=last?_ts(last):'';
+  var kept=getPending().filter(function(p){return p.clinic!==clinic;});
+  getAllRecords()
+    .filter(function(r){return r.type==='Delivery'&&r.clinic===clinic&&!r.voided;})
+    .filter(function(r){return !since||_ts(r)>since;})
+    .forEach(function(r){
+      (r.items||[]).forEach(function(it){
+        kept.push({clinic:clinic,drug:it.drug,qty:parseFloat(it.qty)||0,ref:'del_'+r.id,date:r.date});
+      });
+    });
+  savePending(kept);
 }
 
 // ── SUPPLIERS ──
@@ -3292,7 +3344,7 @@ function showPage(id){
   if(id==='stocktake')loadLastStocktake();
   if(id==='administer')renderAdministerPage();
   if(id==='recall')renderRecallPage();
-  if(id==='delivery'){refreshDeliveryDrugDropdowns();fillSupplierSelect();}
+  if(id==='delivery'){refreshDeliveryDrugDropdowns();fillSupplierSelect();renderRecentDeliveries();}
   if(id==='meeting'){buildMeetingAttendees();buildMeetingAgenda();buildMeetingActions();refreshMeetingSignoff();checkMonthlyReminder();}
   if(id==='documents')renderDocumentsPage();
   if(id==='keys')renderKeyPage();
@@ -3699,7 +3751,7 @@ function getDrugBalance(clinic,drug){
   }
   recs.forEach(function(r){
     if(since&&_ts(r)<=since)return;
-    if(r.type==='Delivery'){
+    if(r.type==='Delivery'&&!r.voided){
       (r.items||[]).forEach(function(it){if(it.drug===drug)bal+=parseFloat(it.qty)||0;});
     }else if(r.type==='Administration'&&r.drug===drug&&!r.voided){
       bal-=(parseFloat(r.qty)||0)+(parseFloat(r.wasted)||0);
@@ -3731,7 +3783,7 @@ function getBatchBreakdownForDrug(clinic,drug){
     return map[batch];
   }
   getAllRecords().filter(function(r){return r.clinic===clinic;}).forEach(function(r){
-    if(r.type==='Delivery'){
+    if(r.type==='Delivery'&&!r.voided){
       (r.items||[]).forEach(function(it){
         if(it.drug!==drug||!it.batch)return;
         slot(it.batch,it.expiry).qty+=parseFloat(it.qty)||0;
@@ -4221,7 +4273,7 @@ function getAllBatches(){
     return map[batch];
   }
   getAllRecords().forEach(function(r){
-    if(r.type==='Delivery'){
+    if(r.type==='Delivery'&&!r.voided){
       (r.items||[]).forEach(function(it){
         if(!it.batch)return;
         slot(it.batch,it.drug,r.clinic,it.expiry).received+=parseFloat(it.qty)||0;
@@ -4284,13 +4336,14 @@ function runRecallSearch(){
     return;
   }
 
-  var received=0,expiry='',drugs={},suppliers={},clinics={};
+  var received=0,expiry='',drugs={},suppliers={},clinics={},voidedDeliveryCount=0;
   d.forEach(function(x){
+    if(x.item.drug)drugs[x.item.drug]=1;
+    if(x.rec.clinic)clinics[x.rec.clinic]=1;
+    if(x.rec.voided){voidedDeliveryCount++;return;}
     received+=parseFloat(x.item.qty)||0;
     if(x.item.expiry)expiry=x.item.expiry;
-    if(x.item.drug)drugs[x.item.drug]=1;
     if(x.rec.supplier)suppliers[x.rec.supplier]=1;
-    if(x.rec.clinic)clinics[x.rec.clinic]=1;
   });
   var given=0,wasted=0,patients={},voidedCount=0;
   a.forEach(function(r){
@@ -4362,12 +4415,13 @@ function runRecallSearch(){
   }
 
   if(d.length){
-    html+='<div class="card"><div class="card-title" style="margin-bottom:14px;">📦 Delivery Source</div>'
+    html+='<div class="card"><div class="card-title" style="margin-bottom:14px;">📦 Delivery Source ('+d.length+' entries'+(voidedDeliveryCount?', '+voidedDeliveryCount+' voided':'')+')</div>'
       +'<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Clinic</th><th>Supplier</th><th>Invoice</th><th>Drug</th><th style="text-align:right;">Qty</th><th>Expiry</th><th>Received by</th></tr></thead><tbody>'
       +d.map(function(x){
-        return '<tr><td>'+(x.rec.date||'')+'</td><td>'+(x.rec.clinic||'')+'</td><td>'+(x.rec.supplier||'—')+'</td>'
+        var vd=!!x.rec.voided;
+        return '<tr'+(vd?' style="opacity:.55;text-decoration:line-through;"':'')+'><td>'+(x.rec.date||'')+'</td><td>'+(x.rec.clinic||'')+'</td><td>'+(x.rec.supplier||'—')+'</td>'
           +'<td>'+(x.rec.invoice||'—')+'</td><td>'+(x.item.drug||'')+'</td>'
-          +'<td style="text-align:right;">'+(x.item.qty||0)+'</td><td>'+(x.item.expiry||'—')+'</td><td>'+(x.rec.by||'')+'</td></tr>';
+          +'<td style="text-align:right;">'+(x.item.qty||0)+'</td><td>'+(x.item.expiry||'—')+'</td><td>'+(x.rec.by||'')+(vd?' <span class="pill red" style="text-decoration:none;">VOID</span>':'')+'</td></tr>';
       }).join('')
       +'</tbody></table></div></div>';
   }
@@ -4528,17 +4582,132 @@ function submitDelivery(){
   // Save drug names to known list for this clinic
   var knownDrugs=getKnownDrugsForClinic(clinic);
   items.forEach(function(item){
-    addPending(clinic,item.drug,item.qty,'del_'+Date.now(),dateStr);
     if(item.drug&&knownDrugs.indexOf(item.drug)<0) knownDrugs.push(item.drug);
   });
   saveKnownDrugsForClinic(clinic,knownDrugs);
+  rebuildPendingForClinic(clinic);
   removeFile();
   document.getElementById('delivInvoice').value='';
   document.getElementById('deliveryItems').innerHTML='';
   addDeliveryRow();
   loadLastStocktake();
+  renderRecentDeliveries();
   showToast('\u2713 Delivery recorded \u2014 balances updated for next stocktake');
   setTimeout(function(){showPage('dashboard');},1000);
+}
+
+// \u2500\u2500 EDIT / VOID A DELIVERY \u2500\u2500
+// A delivery is data entry like a stocktake count, not a legally-fixed
+// dose record, so edits are allowed outright (unlike Administration entries,
+// which are voided-with-reason to preserve the dose trail). Every edit is
+// still logged to an editHistory array kept on the record.
+function renderRecentDeliveries(){
+  var el=document.getElementById('recentDeliveriesTable');
+  if(!el)return;
+  var clinic=document.getElementById('delivClinic')?document.getElementById('delivClinic').value:'';
+  var list=(clinic?getAllRecords().filter(function(r){return r.clinic===clinic;}):getRecords())
+    .filter(function(r){return r.type==='Delivery';})
+    .sort(function(a,b){return _ts(b).localeCompare(_ts(a));})
+    .slice(0,15);
+  if(!list.length){
+    el.innerHTML='<p style="font-size:13px;color:var(--muted);">No deliveries recorded yet for this clinic.</p>';
+    return;
+  }
+  var rows=list.map(function(r){
+    var vd=!!r.voided;
+    var itemsStr=(r.items||[]).map(function(it){return it.drug+' \u00d7'+it.qty+(it.batch?' ('+it.batch+')':'');}).join(', ');
+    return '<tr'+(vd?' style="opacity:.55;"':'')+'>'
+      +'<td style="white-space:nowrap;'+(vd?'text-decoration:line-through;':'')+'">'+(r.date||'')+'</td>'
+      +'<td'+(vd?' style="text-decoration:line-through;"':'')+'>'+(r.supplier||'\u2014')+(r.invoice?' <span style="color:var(--muted);font-size:11px;">('+r.invoice+')</span>':'')+'</td>'
+      +'<td style="font-size:12px;'+(vd?'text-decoration:line-through;':'')+'">'+itemsStr+'</td>'
+      +'<td style="font-size:12px;">'+(r.by||'')+'</td>'
+      +'<td style="text-align:right;white-space:nowrap;">'+(vd
+        ?'<span class="pill red" title="'+String(r.voidReason||'').replace(/"/g,'&quot;')+' \u2014 voided by '+String(r.voidedBy||'').replace(/"/g,'&quot;')+'">VOID</span>'
+        :'<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;" onclick="openEditDeliveryModal('+r.id+')">Edit</button> '
+         +'<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:var(--red);" onclick="voidDelivery('+r.id+')">Void</button>')+'</td>'
+      +'</tr>';
+  }).join('');
+  el.innerHTML='<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Supplier</th><th>Items</th><th>By</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+
+window._editDeliveryId=null;
+function openEditDeliveryModal(id){
+  var rec=getAllRecords().filter(function(r){return r.id===id;})[0];
+  if(!rec)return;
+  window._editDeliveryId=id;
+  document.getElementById('editDeliveryIntro').textContent='Editing delivery to '+rec.clinic+' on '+rec.date+', recorded by '+(rec.by||'')+'.';
+  document.getElementById('editDelivSupplier').value=rec.supplier||'';
+  document.getElementById('editDelivInvoice').value=rec.invoice||'';
+  document.getElementById('editDelivDate').value=rec.date||'';
+  document.getElementById('editDeliveryReason').value='';
+  var rowsEl=document.getElementById('editDeliveryRows');
+  rowsEl.innerHTML='';
+  (rec.items&&rec.items.length?rec.items:[{drug:'',qty:'',batch:'',expiry:''}]).forEach(function(it){
+    addEditDeliveryRow(it);
+  });
+  document.getElementById('editDeliveryModal').classList.add('open');
+}
+function addEditDeliveryRow(item){
+  item=item||{};
+  var row=document.createElement('div');
+  row.className='edit-delivery-row';
+  row.innerHTML='<input type="text" class="ed-drug" placeholder="Drug name" value="'+String(item.drug||'').replace(/"/g,'&quot;')+'">'
+    +'<input type="number" class="ed-qty" min="0" step="any" placeholder="Qty" value="'+(item.qty!=null?item.qty:'')+'">'
+    +'<input type="text" class="ed-batch" placeholder="Batch No." style="font-family:monospace;" value="'+String(item.batch||'').replace(/"/g,'&quot;')+'">'
+    +'<input type="date" class="ed-expiry" value="'+(item.expiry||'')+'">'
+    +'<button type="button" onclick="this.closest(\'div\').remove();" title="Remove row">\u2715</button>';
+  document.getElementById('editDeliveryRows').appendChild(row);
+}
+function closeEditDeliveryModal(){
+  document.getElementById('editDeliveryModal').classList.remove('open');
+}
+function saveEditedDelivery(){
+  var id=window._editDeliveryId;
+  var rec=getAllRecords().filter(function(r){return r.id===id;})[0];
+  if(!id||!rec)return;
+  var items=[];
+  document.querySelectorAll('#editDeliveryRows > div').forEach(function(row){
+    var drug=(row.querySelector('.ed-drug').value||'').trim();
+    var qty=row.querySelector('.ed-qty').value;
+    if(!drug||!qty)return;
+    items.push({drug:drug,qty:qty,batch:row.querySelector('.ed-batch').value,expiry:row.querySelector('.ed-expiry').value});
+  });
+  if(!items.length){showToast('Add at least one drug with a name and quantity');return;}
+  var reason=(document.getElementById('editDeliveryReason').value||'').trim();
+  if(!reason){showToast('Please note a reason for this edit \u2014 kept in the audit trail');return;}
+  var history=(rec.editHistory||[]).concat([{
+    at:new Date().toISOString(),by:currentUser.name,reason:reason,
+    before:{supplier:rec.supplier,invoice:rec.invoice,date:rec.date,items:rec.items}
+  }]);
+  _patchRecord(id,{
+    supplier:document.getElementById('editDelivSupplier').value,
+    invoice:document.getElementById('editDelivInvoice').value,
+    date:document.getElementById('editDelivDate').value,
+    items:items,
+    editHistory:history
+  });
+  closeEditDeliveryModal();
+  rebuildPendingForClinic(rec.clinic);
+  renderRecentDeliveries();
+  loadLastStocktake();
+  showToast('\u2713 Delivery updated \u2014 stock count and batches recalculated');
+}
+function voidDelivery(id){
+  var rec=getAllRecords().filter(function(r){return r.id===id;})[0];
+  if(!rec)return;
+  if(rec.voided){showToast('That delivery is already voided');return;}
+  var itemsStr=(rec.items||[]).map(function(it){return it.drug+' \u00d7'+it.qty;}).join(', ');
+  var reason=prompt('Void this delivery \u2014 '+itemsStr+' on '+rec.date+'.\n\n'
+    +'The entry is NOT deleted: it stays visible marked "VOID" with your name and reason, '
+    +'and is fully excluded from stock counts, batch records and recall tracing \u2014 use this for a duplicate entry.\n\nReason for voiding (required):');
+  if(reason===null)return;
+  reason=String(reason).trim();
+  if(!reason){showToast('A written reason is required to void an entry');return;}
+  _patchRecord(id,{voided:true,voidReason:reason,voidedBy:currentUser.name,voidedAt:new Date().toISOString()});
+  rebuildPendingForClinic(rec.clinic);
+  renderRecentDeliveries();
+  loadLastStocktake();
+  showToast('Delivery voided \u2014 stock count corrected');
 }
 
 // ============================================================
@@ -5281,7 +5450,7 @@ function exportPDF(reportType){
       return bt[b];
     }
     records.forEach(function(r){
-      if(r.type==='Delivery'){
+      if(r.type==='Delivery'&&!r.voided){
         (r.items||[]).forEach(function(it){
           if(it.batch)bslot(it.batch,it.drug,r.clinic,it.expiry).recv+=parseFloat(it.qty)||0;
         });
@@ -5312,8 +5481,8 @@ function exportPDF(reportType){
   }
   if(reportType==='delivery'||reportType==='all'){
     var dlRows=[];
-    records.filter(function(r){return r.type==='Delivery';}).forEach(function(r){var items=r.items&&r.items.length?r.items:[{}];items.forEach(function(item){dlRows.push({date:r.date,time:r.time,clinic:r.clinic,supplier:r.supplier,invoice:r.invoice,iDrug:item.drug,iQty:item.qty,iBatch:item.batch,iExp:item.expiry,by:r.by});});});
-    addSection('STOCK DELIVERY LOG',dlRows,[{header:'Date',get:function(r){return r.date;}},{header:'Time',get:function(r){return r.time;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'Supplier',get:function(r){return r.supplier;}},{header:'Invoice',get:function(r){return r.invoice;}},{header:'Drug',get:function(r){return r.iDrug;}},{header:'Qty',get:function(r){return r.iQty;}},{header:'Batch',get:function(r){return r.iBatch;}},{header:'Expiry',get:function(r){return r.iExp;}},{header:'By',get:function(r){return r.by;}}]);
+    records.filter(function(r){return r.type==='Delivery';}).forEach(function(r){var items=r.items&&r.items.length?r.items:[{}];items.forEach(function(item){dlRows.push({date:r.date,time:r.time,clinic:r.clinic,supplier:r.supplier,invoice:r.invoice,iDrug:item.drug,iQty:item.qty,iBatch:item.batch,iExp:item.expiry,by:r.by,status:r.voided?('VOID — '+(r.voidReason||'')+' ('+(r.voidedBy||'')+')'):''});});});
+    addSection('STOCK DELIVERY LOG',dlRows,[{header:'Date',get:function(r){return r.date;}},{header:'Time',get:function(r){return r.time;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'Supplier',get:function(r){return r.supplier;}},{header:'Invoice',get:function(r){return r.invoice;}},{header:'Drug',get:function(r){return r.iDrug;}},{header:'Qty',get:function(r){return r.iQty;}},{header:'Batch',get:function(r){return r.iBatch;}},{header:'Expiry',get:function(r){return r.iExp;}},{header:'By',get:function(r){return r.by;}},{header:'Status',get:function(r){return r.status;}}]);
   }
   if(reportType==='variance'||reportType==='all'){
     addSection('VARIANCE & DISCREPANCY REPORT',records.filter(function(r){return r.hasVariance;}),[{header:'Date',get:function(r){return r.date;}},{header:'Time',get:function(r){return r.time;}},{header:'Clinic',get:function(r){return r.clinic;}},{header:'By',get:function(r){return r.by;}},{header:'Explanation',get:function(r){return r.varianceNote||'No explanation provided';}},{header:'Patient / Notes',get:function(r){return r.patientNote||'';}}]);
