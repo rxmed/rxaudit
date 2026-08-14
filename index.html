@@ -3951,14 +3951,27 @@ function unattributedBatchLineHTML(clinic,drug,opening){
 // physical stocktake.
 window._reconcileClinic=null;
 window._reconcileDrug=null;
+// How much of a drug's balance is not yet attributed to any known batch —
+// the target the reconcile modal should fill, not the drug's full balance
+// (some of it may already be attributed via a delivery or an earlier
+// reconciliation, and that portion isn't asked for again).
+function _reconcileUnattributed(clinic,drug){
+  var bal=getDrugBalance(clinic,drug).balance;
+  var known=getBatchBreakdownForDrug(clinic,drug);
+  var knownSum=Math.round(known.reduce(function(s,b){return s+b.qty;},0)*100)/100;
+  return {bal:bal,known:known,knownSum:knownSum,unattributed:Math.round((bal-knownSum)*100)/100};
+}
 function openReconcileBatchModal(clinic,drug){
   window._reconcileClinic=clinic;
   window._reconcileDrug=drug;
-  var bal=getDrugBalance(clinic,drug).balance;
+  var r=_reconcileUnattributed(clinic,drug);
+  var knownStr=r.known.length
+    ?r.known.map(function(b){return b.batch+' ×'+b.qty;}).join(', ')
+    :'none';
   document.getElementById('reconcileBatchIntro').innerHTML=
-    'Current expected balance for <strong>'+drug+'</strong> at <strong>'+clinic+'</strong> is <strong>'+bal+'</strong> unit(s). '
-    +'Enter the batch number(s) on the shelf that make up this stock — split across rows if more than one batch is on hand. '
-    +'This does not change your stock count, it only attributes it for recall tracing.';
+    '<strong>'+drug+'</strong> at <strong>'+clinic+'</strong>: balance is <strong>'+r.bal+'</strong> unit(s). '
+    +'Already attributed to a known batch: <strong>'+r.knownSum+'</strong> ('+knownStr+'). '
+    +'Enter the batch number(s) for the remaining <strong>'+r.unattributed+'</strong> unit(s) below.';
   document.getElementById('reconcileBatchRows').innerHTML='';
   addReconcileBatchRow();
   _reconcileUpdateTotal();
@@ -3981,10 +3994,10 @@ function _reconcileUpdateTotal(){
   var sum=0;
   rows.forEach(function(r){sum+=parseFloat(r.querySelector('.rec-qty').value)||0;});
   sum=Math.round(sum*100)/100;
-  var bal=getDrugBalance(window._reconcileClinic,window._reconcileDrug).balance;
+  var target=_reconcileUnattributed(window._reconcileClinic,window._reconcileDrug).unattributed;
   var el=document.getElementById('reconcileBatchTotal');
-  var diff=Math.round((bal-sum)*100)/100;
-  el.innerHTML='Allocated: '+sum+' of '+bal
+  var diff=Math.round((target-sum)*100)/100;
+  el.innerHTML='Allocated: '+sum+' of '+target+' unattributed'
     +(diff!==0?' <span style="color:#b7791f;">('+(diff>0?diff+' remaining':(-diff)+' over')+')</span>':' <span style="color:var(--green);">✓ fully allocated</span>');
 }
 function submitReconcileBatches(){
@@ -4002,9 +4015,9 @@ function submitReconcileBatches(){
   });
   if(!ok){showToast('Each batch row needs both a batch number and a quantity');return;}
   if(!items.length){showToast('Enter at least one batch');return;}
-  var bal=getDrugBalance(clinic,drug).balance;
+  var target=_reconcileUnattributed(clinic,drug).unattributed;
   var sum=Math.round(items.reduce(function(s,i){return s+i.qty;},0)*100)/100;
-  if(Math.abs(sum-bal)>0.001&&!confirm('Allocated '+sum+' but the expected balance is '+bal+'.\n\nSave anyway? You can attribute the rest later.'))return;
+  if(Math.abs(sum-target)>0.001&&!confirm('Allocated '+sum+' but '+target+' unit(s) are still unattributed.\n\nSave anyway? You can attribute the rest later.'))return;
 
   // Dated at-or-before the last stocktake so it is excluded from the balance
   // calculation going forward (the units are already counted in that
