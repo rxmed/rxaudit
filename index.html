@@ -638,8 +638,13 @@ textarea:focus{border-color:var(--teal);}
       </div>
 
       <div class="card">
-        <div class="card-title" style="margin-bottom:6px;">📖 Recent Deliveries</div>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Made an entry error, or entered a delivery twice by mistake? Edit or void it here — corrections update the stock count and batch records immediately.</p>
+        <div class="card-title" style="margin-bottom:6px;">📖 Delivery History</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Made an entry error, or entered a delivery twice by mistake? Search for it below, then edit or void it — corrections update the stock count and batch records immediately.</p>
+        <div class="form-row three" style="margin-bottom:12px;">
+          <div class="field"><label>Search supplier / invoice / drug / batch</label><input type="text" id="delivHistFilterText" placeholder="Type to search..." oninput="renderRecentDeliveries()"></div>
+          <div class="field"><label>From</label><input type="date" id="delivHistFilterFrom" onchange="renderRecentDeliveries()"></div>
+          <div class="field"><label>To</label><input type="date" id="delivHistFilterTo" onchange="renderRecentDeliveries()"></div>
+        </div>
         <div id="recentDeliveriesTable"></div>
       </div>
     </div>
@@ -4605,12 +4610,26 @@ function renderRecentDeliveries(){
   var el=document.getElementById('recentDeliveriesTable');
   if(!el)return;
   var clinic=document.getElementById('delivClinic')?document.getElementById('delivClinic').value:'';
+  var txt=(document.getElementById('delivHistFilterText')?document.getElementById('delivHistFilterText').value:'').toLowerCase().trim();
+  var from=document.getElementById('delivHistFilterFrom')?document.getElementById('delivHistFilterFrom').value:'';
+  var to=document.getElementById('delivHistFilterTo')?document.getElementById('delivHistFilterTo').value:'';
+  var filtered = !!(txt||from||to);
+
   var list=(clinic?getAllRecords().filter(function(r){return r.clinic===clinic;}):getRecords())
-    .filter(function(r){return r.type==='Delivery';})
-    .sort(function(a,b){return _ts(b).localeCompare(_ts(a));})
-    .slice(0,15);
+    .filter(function(r){return r.type==='Delivery';});
+  if(from)list=list.filter(function(r){return (r.date||'')>=from;});
+  if(to)list=list.filter(function(r){return (r.date||'')<=to;});
+  if(txt)list=list.filter(function(r){
+    var itemsBlob=(r.items||[]).map(function(it){return it.drug+' '+it.batch;}).join(' ');
+    return [r.supplier,r.invoice,itemsBlob].join(' ').toLowerCase().indexOf(txt)>=0;
+  });
+  list=list.sort(function(a,b){return _ts(b).localeCompare(_ts(a));});
+  var totalMatches=list.length;
+  if(!filtered)list=list.slice(0,15);
+
   if(!list.length){
-    el.innerHTML='<p style="font-size:13px;color:var(--muted);">No deliveries recorded yet for this clinic.</p>';
+    el.innerHTML='<p style="font-size:13px;color:var(--muted);">'
+      +(filtered?'No deliveries match your search.':'No deliveries recorded yet for this clinic.')+'</p>';
     return;
   }
   var rows=list.map(function(r){
@@ -4627,7 +4646,9 @@ function renderRecentDeliveries(){
          +'<button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:var(--red);" onclick="voidDelivery('+r.id+')">Void</button>')+'</td>'
       +'</tr>';
   }).join('');
-  el.innerHTML='<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Supplier</th><th>Items</th><th>By</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  el.innerHTML='<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Supplier</th><th>Items</th><th>By</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +(!filtered&&totalMatches>15?'<p style="font-size:12px;color:var(--muted);margin-top:8px;">Showing the 15 most recent of '+totalMatches+' deliveries. Use search or a date range above to find an older one.</p>':'')
+    +(filtered?'<p style="font-size:12px;color:var(--muted);margin-top:8px;">'+totalMatches+' matching '+(totalMatches===1?'delivery':'deliveries')+'.</p>':'');
 }
 
 window._editDeliveryId=null;
