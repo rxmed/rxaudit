@@ -1214,6 +1214,20 @@ textarea:focus{border-color:var(--teal);}
   </div>
 </div>
 
+<!-- CONFIRM ADMINISTRATION (in-app modal, not a native confirm() — those get
+     silently suppressed by mobile Safari after repeated use, which is exactly
+     the failure mode this replaces on the app's busiest, most-tapped action) -->
+<div class="modal-overlay" id="confirmAdminModal">
+  <div class="modal" style="width:min(480px,96vw);">
+    <div class="modal-title">💉 Confirm Administration</div>
+    <div id="confirmAdminBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeConfirmAdminModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="finalizeSubmitAdministration()">✓ Confirm &amp; Record</button>
+    </div>
+  </div>
+</div>
+
 <!-- BATCH DETAIL (click a batch chip on the stocktake page) -->
 <div class="modal-overlay" id="batchDetailModal">
   <div class="modal" style="width:min(640px,96vw);">
@@ -4338,6 +4352,14 @@ function admResetForm(){
   var t=document.getElementById('admTime');if(t)t.value=new Date().toTimeString().slice(0,5);
   admUpdateBalance();
 }
+// Validates the form and shows an in-app confirmation with the resulting
+// balance before anything is saved. Deliberately NOT a native confirm() —
+// this fires on the single most frequent action in the app, and mobile
+// Safari silently suppresses all future confirm()/alert() dialogs on a page
+// once a user has dismissed a few in a row ("Prevent this page from
+// creating additional dialogs"), which would make Record Administration
+// appear to do nothing with no visible error.
+window._pendingAdmin=null;
 function submitAdministration(){
   var clinic=document.getElementById('admClinic').value;
   var patient=(document.getElementById('admPatient').value||'').trim();
@@ -4354,36 +4376,54 @@ function submitAdministration(){
   if(wasted>0&&!wasteReason){showToast('A written wastage reason is required (MPA 2019 s.60)');return;}
   var before=getDrugBalance(clinic,drug).balance;
   var after=Math.round((before-(qty+wasted))*100)/100;
-  var msg='Confirm administration:\n\n'
-    +'Drug: '+drug+'\n'
-    +'Patient: '+patient+'\n'
-    +'Batch: '+batch+'\n'
-    +'Qty given: '+qty+(wasted>0?'\nQty wasted: '+wasted:'')+'\n\n'
-    +'Balance before: '+before+'\n'
-    +'Balance after: '+after+'\n\n'
-    +'The stocktake will be confirmed and saved automatically with this balance.'
-    +(after<0?'\n\n⚠ This takes the balance below zero — that usually means a delivery or stocktake has not been entered yet.':'')
-    +'\n\nRecord this entry?';
-  if(!confirm(msg))return;
-  saveRecord({
-    type:'Administration',clinic:clinic,
+  window._pendingAdmin={
+    clinic:clinic,patient:patient,drug:drug,batch:batch,qty:qty,wasted:wasted,wasteReason:wasteReason,before:before,after:after,
     date:document.getElementById('admDate').value,
     time:document.getElementById('admTime').value,
-    patient:patient,
     patientId:(document.getElementById('admPatientId').value||'').trim(),
-    drug:drug,batch:batch,
     expiry:document.getElementById('admExpiry').value,
-    qty:qty,wasted:wasted,wasteReason:wasteReason,
     witness:(document.getElementById('admWitness').value||'').trim(),
-    site:(document.getElementById('admSite').value||'').trim(),
-    balanceAfter:after,
+    site:(document.getElementById('admSite').value||'').trim()
+  };
+  document.getElementById('confirmAdminBody').innerHTML=
+    '<div style="font-size:14px;line-height:1.7;margin-bottom:14px;">'
+    +'<strong>'+drug+'</strong> for <strong>'+patient+'</strong><br>'
+    +'Batch: '+batch+'<br>'
+    +'Qty given: '+qty+(wasted>0?' &nbsp; Qty wasted: '+wasted:'')
+    +'</div>'
+    +'<div style="padding:14px 16px;background:var(--bg);border-radius:10px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;">'
+    +'<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Balance before</div><div style="font-size:22px;font-weight:700;">'+before+'</div></div>'
+    +'<div style="font-size:18px;color:var(--muted);">→</div>'
+    +'<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Balance after</div><div style="font-size:22px;font-weight:700;'+(after<0?'color:var(--red);':'color:var(--navy);')+'">'+after+'</div></div>'
+    +'</div>'
+    +'<p style="font-size:12px;color:var(--muted);margin-top:12px;">The stocktake will be confirmed and saved automatically with this balance.</p>'
+    +(after<0?'<div class="alert-box warn" style="margin-top:10px;"><span>⚠️</span><div>This takes the balance below zero — that usually means a delivery or stocktake has not been entered yet.</div></div>':'');
+  document.getElementById('confirmAdminModal').classList.add('open');
+}
+function closeConfirmAdminModal(){
+  document.getElementById('confirmAdminModal').classList.remove('open');
+  window._pendingAdmin=null;
+}
+function finalizeSubmitAdministration(){
+  var p=window._pendingAdmin;
+  if(!p)return;
+  saveRecord({
+    type:'Administration',clinic:p.clinic,
+    date:p.date,time:p.time,
+    patient:p.patient,patientId:p.patientId,
+    drug:p.drug,batch:p.batch,expiry:p.expiry,
+    qty:p.qty,wasted:p.wasted,wasteReason:p.wasteReason,
+    witness:p.witness,site:p.site,
+    balanceAfter:p.after,
     by:currentUser.name,ahpra:currentUser.ahpra||''
   });
-  autoReconcileStocktakeAfterAdministration(clinic,drug,qty,wasted,patient,batch);
+  autoReconcileStocktakeAfterAdministration(p.clinic,p.drug,p.qty,p.wasted,p.patient,p.batch);
+  document.getElementById('confirmAdminModal').classList.remove('open');
+  window._pendingAdmin=null;
   admResetForm();
   renderAdminRegister();
   refreshPatientSuggestions();
-  showToast('✓ '+drug+' recorded for '+patient+' — balance now '+after);
+  showToast('✓ '+p.drug+' recorded for '+p.patient+' — balance now '+p.after);
 }
 function renderAdminRegister(){
   var el=document.getElementById('admRegisterTable');if(!el)return;
