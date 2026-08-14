@@ -138,10 +138,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .edit-delivery-row{display:grid;grid-template-columns:1fr 70px 120px 120px 28px;gap:8px;align-items:center;}
 .edit-delivery-row input,.edit-delivery-row select{border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;width:100%;min-width:0;outline:none;font-family:'Inter',sans-serif;box-sizing:border-box;}
 .drug-field-label{display:none;}
-.stepper{display:flex;align-items:center;gap:6px;}
+.stepper{display:flex;align-items:center;gap:4px;align-self:flex-start;width:fit-content;}
 .stepper button{width:26px;height:26px;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#f8fafc;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .stepper button:hover{border-color:var(--teal);}
-.stepper-val{flex:1;min-width:0;text-align:center;font-family:var(--mono);font-weight:600;font-size:13px;}
+.stepper-val{min-width:22px;text-align:center;font-family:var(--mono);font-weight:600;font-size:13px;}
 .static-field-val{display:block;font-family:var(--mono);font-weight:600;font-size:13px;padding:6px 0;color:var(--text);}
 .drug-name{font-weight:500;}
 .variance{font-family:var(--mono);font-size:12px;}
@@ -223,9 +223,9 @@ textarea:focus{border-color:var(--teal);}
   .nav-item{flex-direction:column;gap:2px;padding:8px 4px;font-size:9px;text-align:center;border-left:none!important;border-top:3px solid transparent;min-width:54px;flex:1 0 auto;}
   .nav-item.active{border-top-color:var(--teal);border-left:none;background:rgba(0,184,162,0.15);}
   .nav-icon{font-size:18px;width:auto;}
-  .main{padding:10px;padding-bottom:76px;order:1;}
-  .header{height:44px;padding:0 12px;}
-  .layout{margin-top:44px;}
+  .main{padding:8px;padding-bottom:70px;order:1;}
+  .header{height:40px;padding:0 10px;}
+  .layout{margin-top:40px;}
   .header-title{display:none;}
   .header-logo{font-size:10px;}
   .user-name{font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -235,21 +235,25 @@ textarea:focus{border-color:var(--teal);}
   .clinic-grid{grid-template-columns:1fr 1fr;}
   .form-row.three{grid-template-columns:1fr;}
   .form-row{grid-template-columns:1fr;}
-  .page-header{flex-direction:column;gap:6px;margin-bottom:12px!important;}
-  .page-title{font-size:17px;}
-  .page-sub{font-size:12px;}
+  .page-header{flex-direction:column;gap:4px;margin-bottom:8px!important;}
+  .page-title{font-size:16px;}
+  .page-sub{font-size:11px;}
+  .btn-ghost{padding:6px 10px!important;font-size:12px!important;}
   /* Denser cards/fields on mobile so more of a screen fits without scrolling */
-  .card{padding:12px 14px!important;margin-bottom:10px!important;}
-  .card-title{margin-bottom:8px!important;}
-  .form-row,.form-row.three,.form-row-dt{margin-bottom:8px!important;gap:8px!important;}
-  .field{gap:3px!important;}
-  .field label{font-size:10px!important;}
-  .field select,.field input,.field textarea{padding:7px 9px!important;}
-  .lf{margin-bottom:10px!important;gap:3px!important;}
-  .alert-box{padding:9px 12px!important;margin-bottom:10px!important;}
-  .checklist .check-item{padding:8px 10px!important;}
-  .btn{padding:9px 14px!important;}
-  .drug-row{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:13px;padding:12px;}
+  .card{padding:10px 12px!important;margin-bottom:8px!important;}
+  .card-title{margin-bottom:6px!important;font-size:12px!important;}
+  .form-row,.form-row.three,.form-row-dt{margin-bottom:6px!important;gap:6px!important;}
+  .field{gap:2px!important;}
+  .field label{font-size:9.5px!important;}
+  .field select,.field input,.field textarea{padding:6px 8px!important;}
+  .lf{margin-bottom:8px!important;gap:2px!important;}
+  .alert-box{padding:7px 10px!important;margin-bottom:8px!important;font-size:12px!important;}
+  .checklist{gap:5px!important;}
+  .checklist .check-item{padding:6px 9px!important;}
+  .btn{padding:8px 12px!important;}
+  #admBalanceBox,#wastageOptionsStats,#discardPreview,#batchDetailStats{padding:8px 10px!important;gap:12px!important;margin-bottom:8px!important;margin-top:4px!important;}
+  #admBalBefore,#admBalChange,#admBalAfter{font-size:18px!important;}
+  .drug-row{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;font-size:13px;padding:8px 10px;margin-bottom:4px!important;}
   .drug-row.header{display:none;}
   .drug-row .drug-name{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--navy);}
   .drug-row .variance{grid-column:1/-1;text-align:right;font-size:13px;padding-top:2px;border-top:1px solid var(--border);}
