@@ -135,6 +135,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .stepper button{width:26px;height:26px;flex-shrink:0;border-radius:6px;border:1px solid var(--border);background:#f8fafc;font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .stepper button:hover{border-color:var(--teal);}
 .stepper-val{flex:1;min-width:0;text-align:center;font-family:var(--mono);font-weight:600;font-size:13px;}
+.static-field-val{display:block;font-family:var(--mono);font-weight:600;font-size:13px;padding:6px 0;color:var(--text);}
 .drug-name{font-weight:500;}
 .variance{font-family:var(--mono);font-size:12px;}
 .variance.ok{color:var(--green);}.variance.warn{color:var(--red);font-weight:700;}
@@ -233,8 +234,8 @@ textarea:focus{border-color:var(--teal);}
   .drug-row.header{display:none;}
   .drug-row .drug-name{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--navy);}
   .drug-row .variance{grid-column:1/-1;text-align:right;font-size:13px;padding-top:2px;border-top:1px solid var(--border);}
-  .drug-row .drug-row-rename,.drug-row .drug-row-delete{grid-column:auto;justify-self:end;margin-top:-4px;}
-  .drug-row .drug-row-rename{grid-column:1/2;justify-self:start;}
+  .drug-row .drug-row-wastage,.drug-row .drug-row-delete{grid-column:auto;justify-self:end;margin-top:-4px;}
+  .drug-row .drug-row-wastage{grid-column:1/2;justify-self:start;}
   .drug-row .drug-row-delete{grid-column:2/3;}
   .drug-field-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:3px;}
   .delivery-drug-row{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:white;}
@@ -381,7 +382,6 @@ textarea:focus{border-color:var(--teal);}
 
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">💉 New Administration Entry</div>
-        <div class="alert-box info"><span>ℹ️</span><div>Complete this <strong>at the time of administration</strong> (contemporaneous record — MPA 2019 s.60). The running balance updates automatically and pre-fills your next stocktake.</div></div>
         <div class="form-row three">
           <div class="field"><label>Nurse / Clinic</label><select id="admClinic" onchange="admOnClinicChange()"></select></div>
           <div class="field"><label>Date</label><input type="date" id="admDate"></div>
@@ -396,14 +396,14 @@ textarea:focus{border-color:var(--teal);}
           </div>
           <div class="field"><label>Patient ID / record no. (optional)</label><input type="text" id="admPatientId" placeholder="e.g. PT-1042"></div>
         </div>
-        <div class="form-row three">
+        <div class="form-row">
           <div class="field"><label>Drug <span style="color:var(--red);">*</span></label><select id="admDrug" onchange="admOnDrugChange()"></select></div>
           <div class="field">
             <label>Batch no. <span style="color:var(--red);">*</span></label>
             <select id="admBatchSel" onchange="admOnBatchChange()" style="margin-bottom:6px;"></select>
             <input type="text" id="admBatch" class="hidden" placeholder="Type batch number" style="font-family:monospace;">
           </div>
-          <div class="field"><label>Expiry</label><input type="date" id="admExpiry"></div>
+          <input type="date" id="admExpiry" class="hidden">
         </div>
         <div class="form-row three">
           <div class="field">
@@ -462,7 +462,6 @@ textarea:focus{border-color:var(--teal);}
 
       <div class="card">
         <div class="card-title" style="margin-bottom:10px;">🔍 Batch Lookup</div>
-        <div class="alert-box info"><span>ℹ️</span><div>A batch (lot) number identifies a manufacturing run — many vials share the same number, which is exactly how manufacturers issue recalls. Enter or select the affected batch to see every patient treated from it.</div></div>
         <div class="form-row">
           <div class="field">
             <label>Select a known batch</label>
@@ -497,12 +496,9 @@ textarea:focus{border-color:var(--teal);}
           <div class="field"><label>Date</label><input type="date" id="stockDate"></div>
           <div class="field"><label>Time</label><input type="time" id="stockTime"></div>
         </div>
-        <div id="lastStocktakeBanner" class="alert-box info hidden"><span>🕐</span><div id="lastStocktakeBannerText"></div></div>
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">S4 Drug Physical Count</div>
-        <div class="alert-box info"><span>ℹ️</span><div>Opening balances are pre-filled from the last stocktake. Any unprocessed deliveries have been added automatically. Enter the actual physical count for each drug.</div></div>
-        <div id="adminRegisterNote" class="alert-box info hidden"><span>💉</span><div id="adminRegisterNoteText"></div></div>
         <div class="drug-row header">
           <div>Drug / Product</div><div style="text-align:right;">Opening Bal.</div><div style="text-align:right;">Administered</div><div style="text-align:right;">Wasted</div><div style="text-align:right;">Physical Count</div><div>Variance</div>
         </div>
@@ -525,7 +521,6 @@ textarea:focus{border-color:var(--teal);}
           <label>Patient / Notes (optional)</label>
           <textarea id="patientNote" style="height:80px;" placeholder="e.g. Patient names or notes to track where drugs were administered"></textarea>
         </div>
-        <div id="deliveryAdjustmentNote" class="alert-box info hidden" style="margin-top:12px;margin-bottom:0;"><span>📦</span><div id="deliveryAdjustmentText"></div></div>
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Storage &amp; Security Check</div>
@@ -538,7 +533,6 @@ textarea:focus{border-color:var(--teal);}
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Declaration</div>
-        <div class="alert-box info"><span>📋</span><div>By submitting, you confirm this stocktake was conducted personally and all entries are accurate, as required under the Medicines and Poisons Act 2019 (Qld).</div></div>
         <div class="form-row">
           <div class="field"><label>Full name</label><input type="text" id="nurseFullName"></div>
           <div class="field"><label>AHPRA registration number</label><input type="text" id="nurseAhpra"></div>
@@ -625,7 +619,6 @@ textarea:focus{border-color:var(--teal);}
         </div>
         <div id="deliveryItems"></div>
         <button class="btn btn-ghost btn-sm" style="margin-top:6px;" onclick="addDeliveryRow()">+ Add another drug</button>
-        <div class="alert-box info" style="margin-top:14px;margin-bottom:0;"><span>📦</span><div>Existing drugs show in the dropdown. Type a new name to add a new drug — it will be created in the stocktake automatically.</div></div>
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Upload Delivery Docket / Invoice Photo</div>
@@ -740,7 +733,6 @@ textarea:focus{border-color:var(--teal);}
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Authorisation &amp; Sign-off</div>
-        <div class="alert-box info"><span>📋</span><div>Both the Responsible Drug Person and the nurse are recorded as having authorised this meeting record. Records must be retained for 2 years (MPA 2019). Print the PDF and have both parties sign the printed copy.</div></div>
         <div class="form-row" style="margin-bottom:8px;">
           <div class="field">
             <label style="color:var(--teal);font-weight:700;">Responsible Drug Person (RDP)</label>
@@ -774,7 +766,6 @@ textarea:focus{border-color:var(--teal);}
           <div class="card-title">📁 Shared Clinic Documents</div>
           <div id="sharedDocsAdminBtn"></div>
         </div>
-        <div class="alert-box info"><span>📋</span><div>Documents uploaded here are visible to all nurse portals. Nurses are notified on next login.</div></div>
         <div id="sharedDocsList"></div>
       </div>
       <!-- NURSE PROFILE DOCS -->
@@ -835,7 +826,6 @@ textarea:focus{border-color:var(--teal);}
       <!-- Signing form — shown when no active agreement is on file -->
       <div class="card hidden" id="keyAgreementFormCard">
         <div class="card-title" style="margin-bottom:10px;">S4 Drug Safe Key Holder Agreement</div>
-        <div class="alert-box info"><span>🔑</span><div>As a holder of S4 drug safe keys, you are personally responsible for their security and use in accordance with the Medicines and Poisons Act 2019 (Qld) and this clinic's S4 Medicines Management SOP. Please read and tick each item below.</div></div>
         <div class="checklist" id="keyAgreementChecklist"></div>
         <div style="margin-top:16px;padding:14px;background:var(--bg);border-radius:8px;">
           <p style="font-size:13px;margin-bottom:12px;"><strong>Electronic Declaration:</strong> I declare that I have read and understood this agreement and agree to comply with all clinic policies relating to Schedule 4 medicines.</p>
@@ -1091,7 +1081,6 @@ textarea:focus{border-color:var(--teal);}
           <button class="btn btn-primary" onclick="openUserModal(null,'nurse')">+ New nurse</button>
         </div>
       </div>
-      <div class="alert-box info"><span>👥</span><div><strong>Admins</strong> see all clinics and records. <strong>Nurses</strong> see only their own clinic. Both can access Print Reports. Nurse name and AHPRA auto-populate on all forms.</div></div>
       <div class="card" style="padding:0;overflow:hidden;"><div id="usersTable"></div></div>
     </div>
 
@@ -1133,7 +1122,6 @@ textarea:focus{border-color:var(--teal);}
           </div>
         </div>
         <div id="onboardingTemplateUnlocked" class="hidden">
-          <div class="alert-box info" style="margin-bottom:14px;"><span>ℹ️</span><div id="onboardingTemplateTokens"></div></div>
           <div id="onboardingTemplateEditors"></div>
           <button class="btn btn-ghost btn-sm" onclick="lockOnboardingTemplates()">🔒 Lock editing</button>
         </div>
@@ -1235,6 +1223,19 @@ textarea:focus{border-color:var(--teal);}
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeConfirmAdminModal()">Cancel</button>
       <button class="btn btn-primary" onclick="finalizeSubmitAdministration()">✓ Confirm &amp; Record</button>
+    </div>
+  </div>
+</div>
+
+<!-- WASTAGE OPTIONS (click the wastage icon on a stocktake drug row) -->
+<div class="modal-overlay" id="wastageOptionsModal">
+  <div class="modal" style="width:min(560px,96vw);">
+    <div class="modal-title" id="wastageOptionsTitle">♻️ Wastage</div>
+    <div id="wastageOptionsStats" style="padding:14px 16px;background:var(--bg);border-radius:10px;margin-bottom:14px;"></div>
+    <button class="btn btn-primary" style="margin-bottom:14px;" id="wastageOptionsRecordBtn" onclick="quickRecordWastage()">♻️ Record wastage for this drug</button>
+    <div id="wastageOptionsBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeWastageOptionsModal()">Close</button>
     </div>
   </div>
 </div>
@@ -1983,11 +1984,11 @@ function renderKeyPage(){
   if(myCard){
     if(active){
       myCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">My Key Holder Authorisation</div>'
-        +'<div class="alert-box info"><span>✅</span><div>'
+        +'<div style="font-size:13px;">'
         +'<strong>Status: <span class="pill green">Active</span></strong><br>'
         +'Signed by '+active.name+' on '+new Date(active.signedAt).toLocaleString()+'<br>'
         +'Agreement version: '+active.sopVersion
-        +'</div></div>';
+        +'</div>';
     } else {
       myCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">My Key Holder Authorisation</div>'
         +'<div class="alert-box warn"><span>⚠️</span><div>'
@@ -2579,8 +2580,7 @@ function renderOnboardingPage(){
       }).join('');
       statusCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">My Onboarding Agreements</div>'+rows;
     } else {
-      statusCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">Onboarding Agreements</div>'
-        +'<div class="alert-box info"><span>📝</span><div>Onboarding Agreements (Governance, Fee &amp; Confidentiality) are signed by each Registered Nurse. Use the table below to check signing status, view signed copies, or revoke an agreement if it needs to be re-signed.</div></div>';
+      statusCard.innerHTML='<div class="card-title" style="margin-bottom:10px;">Onboarding Agreements</div>';
     }
   }
 
@@ -3713,31 +3713,10 @@ function loadLastStocktake(){
     var t=admTotals[name]||{administered:0,wasted:0};
     return drugRowHTML(name,lastBalances[name]||0,t.administered,t.wasted,clinic);
   }).join('');
-  var admDrugCount=Object.keys(admTotals).length;
-  var admBanner=document.getElementById('adminRegisterNote');
-  if(admBanner){
-    if(admDrugCount){
-      admBanner.classList.remove('hidden');
-      document.getElementById('adminRegisterNoteText').innerHTML='<strong>Pre-filled from the Administration Register:</strong><br>'
-        +Object.keys(admTotals).map(function(dn){
-          var t=admTotals[dn];
-          return dn+': '+t.administered+' administered'+(t.wasted?', '+t.wasted+' wasted':'');
-        }).join('<br>')
-        +'<br><span style="font-size:12px;">Physical Count is pre-set to the expected balance — adjust it to the actual count on the shelf.</span>';
-    }else{admBanner.classList.add('hidden');}
-  }
-  var banner=document.getElementById('lastStocktakeBanner');
-  var adjNote=document.getElementById('deliveryAdjustmentNote');
-  if(last){
-    banner.classList.remove('hidden');
-    document.getElementById('lastStocktakeBannerText').innerHTML='Pre-filled from last stocktake at <strong>'+last.clinic+'</strong> on <strong>'+last.date+' '+last.time+'</strong> by '+last.by+'.';
-  }else{banner.classList.add('hidden');}
   if(delivNotes.length){
-    adjNote.classList.remove('hidden');
-    document.getElementById('deliveryAdjustmentText').innerHTML='<strong>Delivery adjustments added:</strong><br>'+delivNotes.join('<br>');
     var vn=document.getElementById('varianceNote');
     if(!vn.value.trim())vn.value='Opening balances include unprocessed deliveries:\n'+delivNotes.join('\n');
-  }else{adjNote.classList.add('hidden');}
+  }
 }
 function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic){
   var v=parseFloat(openingVal)||0;
@@ -3745,16 +3724,21 @@ function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic){
   var wa=parseFloat(wastedVal)||0;
   var expected=Math.round((v-ad-wa)*100)/100;
   var cl=clinic||(document.getElementById('stockClinic')?document.getElementById('stockClinic').value:'');
+  var nm=name.replace(/'/g,"\\'");
   return '<div class="drug-row" data-drug="'+name+'">'
-    +'<div class="drug-name">'+name+'</div>'
+    +'<div class="drug-name">'+name
+    +' <button type="button" onclick="renameDrugPrompt(\''+nm+'\')"'
+    +' style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 4px;line-height:1;vertical-align:middle;"'
+    +' title="Rename drug">\u270F\uFE0F</button>'
+    +'</div>'
     +'<div><span class="drug-field-label">Opening Bal.</span>'+stepperHTML('open-bal',v,0)+'</div>'
-    +'<div><span class="drug-field-label">Administered</span>'+stepperHTML('admin',ad,0)+'</div>'
-    +'<div><span class="drug-field-label">Wasted</span>'+stepperHTML('wasted',wa,0)+'</div>'
+    +'<div><span class="drug-field-label">Administered</span><span class="static-field-val">'+ad+'</span><input type="number" class="admin" value="'+ad+'" style="display:none;"></div>'
+    +'<div><span class="drug-field-label">Wasted</span><span class="static-field-val">'+wa+'</span><input type="number" class="wasted" value="'+wa+'" style="display:none;"></div>'
     +'<div><span class="drug-field-label">Physical Count</span>'+stepperHTML('count',expected,0)+'</div>'
     +'<span class="variance ok">\u2713 0</span>'
-    +'<button type="button" onclick="renameDrugPrompt(\''+name.replace(/'/g,"\\'")+'\')" class="drug-row-rename"'
+    +'<button type="button" onclick="openWastageOptions(\''+cl.replace(/'/g,"\\'")+'\',\''+nm+'\')" class="drug-row-wastage"'
     +' style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;justify-self:center;"'
-    +' title="Rename drug">\u270F\uFE0F</button>'
+    +' title="Wastage options">\u267B\uFE0F</button>'
     +'<button type="button" onclick="deleteDrugRow(this)" class="drug-row-delete"'
     +' style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;justify-self:center;"'
     +' title="Remove drug">\uD83D\uDDD1</button>'
@@ -3981,6 +3965,57 @@ function batchBreakdownHTML(clinic,drug,opening){
     +(notes.length?'<span class="batch-note">'+notes.join(' · ')+'</span>':'')
     +' <a href="#" onclick="openReconcileBatchModal(\''+cl+'\',\''+dr+'\');return false;" style="font-size:11px;">+ Attribute batch</a>'
     +'</div>';
+}
+// Wastage options — clicking the ♻️ icon on a stocktake drug row shows a
+// summary of wastage recorded for that drug and a quick jump to record more,
+// now that wastage is entered via the Administer form rather than typed
+// directly into the stocktake grid.
+window._wastageClinic=null;window._wastageDrug=null;
+function openWastageOptions(clinic,drug){
+  window._wastageClinic=clinic;window._wastageDrug=drug;
+  document.getElementById('wastageOptionsTitle').textContent='♻️ Wastage — '+drug;
+  var entries=getAdministrations().filter(function(r){return r.clinic===clinic&&r.drug===drug&&(parseFloat(r.wasted)||0)>0;})
+    .sort(function(a,b){return _ts(b).localeCompare(_ts(a));});
+  var total=0,voidedCount=0;
+  entries.forEach(function(r){if(r.voided){voidedCount++;return;}total+=parseFloat(r.wasted)||0;});
+  total=Math.round(total*100)/100;
+  document.getElementById('wastageOptionsStats').innerHTML=
+    '<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Total wasted ('+clinic+')</div>'
+    +'<div style="font-size:24px;font-weight:700;'+(total>0?'color:#b7791f;':'')+'">'+total+'</div>';
+  var el=document.getElementById('wastageOptionsBody');
+  if(!entries.length){
+    el.innerHTML='<p style="font-size:13px;color:var(--muted);">No wastage recorded for this drug yet.</p>';
+  }else{
+    el.innerHTML='<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Patient</th><th style="text-align:right;">Wasted</th><th>Reason</th><th>Nurse</th></tr></thead><tbody>'
+      +entries.map(function(r){
+        var vd=!!r.voided;
+        return '<tr'+(vd?' style="opacity:.55;text-decoration:line-through;"':'')+'>'
+          +'<td style="white-space:nowrap;">'+(r.date||'')+'</td>'
+          +'<td>'+(r.patient||'')+(vd?' <span class="pill red" style="text-decoration:none;">VOID</span>':'')+'</td>'
+          +'<td style="text-align:right;">'+(r.wasted||0)+'</td>'
+          +'<td style="font-size:12px;">'+(r.wasteReason||'—')+'</td>'
+          +'<td>'+(r.by||'')+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div>'
+      +(voidedCount?'<p style="font-size:12px;color:var(--muted);margin-top:8px;">'+voidedCount+' voided entr'+(voidedCount===1?'y':'ies')+' shown struck through, excluded from the total.</p>':'');
+  }
+  document.getElementById('wastageOptionsModal').classList.add('open');
+}
+function closeWastageOptionsModal(){
+  document.getElementById('wastageOptionsModal').classList.remove('open');
+}
+function quickRecordWastage(){
+  var clinic=window._wastageClinic,drug=window._wastageDrug;
+  closeWastageOptionsModal();
+  showPage('administer');
+  var clinicSel=document.getElementById('admClinic');
+  clinicSel.value=clinic;
+  admOnClinicChange();
+  var drugSel=document.getElementById('admDrug');
+  drugSel.value=drug;
+  admOnDrugChange();
+  if(!window._admWasteOpen)toggleAdmWasteRow();
+  document.getElementById('admWasted').focus();
 }
 // Batch detail modal — clicking a batch chip on the stocktake page shows
 // where it came from, who it's been given to, and offers a quick jump to
@@ -4720,7 +4755,7 @@ function runRecallSearch(){
       }).join('')
       +'</tbody></table></div></div>';
   }else{
-    html+='<div class="card"><div class="alert-box info"><span>✅</span><div><strong>No patients were treated from this batch.</strong> It was received but has no recorded administrations.</div></div></div>';
+    html+='<div class="card"><p style="font-size:13px;"><strong>No patients were treated from this batch.</strong> It was received but has no recorded administrations.</p></div>';
   }
 
   if(d.length){
