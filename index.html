@@ -3362,7 +3362,23 @@ function doLogin(){
   }
   if(!user){err.style.display='block';return;}
   err.style.display='none';
-  currentUser=user;
+
+  var loginBtn=document.getElementById('loginBtn');
+  var loadingEl=document.getElementById('loginLoading');
+  if(loginBtn){loginBtn.disabled=true;loginBtn.textContent='Signing in...';}
+  if(loadingEl){
+    loadingEl.textContent='✓ Login successful — loading your dashboard...';
+    loadingEl.style.color='var(--green)';
+    loadingEl.style.display='block';
+  }
+  // Deferred one tick so the "Signing in..." state above actually paints
+  // before the synchronous dashboard build below (which can take a moment
+  // and blocks repaint while it runs) — without this, the button click
+  // looks like it did nothing.
+  setTimeout(function(){ _finishLogin(user,loginBtn,loadingEl); },10);
+}
+function _finishLogin(user,loginBtn,loadingEl){
+    currentUser=user;
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appShell').classList.remove('hidden');
   document.getElementById('userNameEl').textContent=user.name;
@@ -3387,6 +3403,10 @@ function doLogin(){
   // Re-render once layout has settled — first paint can occur before cloud-loaded
   // data (e.g. nurse list) is reflected in the DOM on some devices.
   setTimeout(renderDashboard,150);
+
+  if(loginBtn){loginBtn.disabled=false;loginBtn.textContent='Sign in →';}
+  if(loadingEl)loadingEl.style.display='none';
+  showToast('✓ Welcome, '+user.name);
 }
 
 function doLogout(){
