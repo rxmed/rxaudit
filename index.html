@@ -121,6 +121,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .batch-chip.soon{background:#fef3c7;border-color:#fcd34d;color:#92400e;}
 .batch-chip.neg{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
 .batch-note{font-size:11px;color:#b7791f;font-weight:600;}
+.drug-batches-list{width:100%;display:flex;flex-direction:column;gap:4px;margin:4px 0;}
+.batch-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.batch-admin-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 10px;border-radius:20px;background:var(--teal);border:1px solid var(--teal);font-size:11px;font-weight:600;color:white;cursor:pointer;outline:none;white-space:nowrap;transition:filter 0.1s;}
+.batch-admin-pill:hover{filter:brightness(0.92);}
+.batch-admin-pill:active{filter:brightness(0.85);}
 .reconcile-batch-row{display:grid;grid-template-columns:1fr 90px 130px 28px;gap:8px;align-items:center;}
 .reconcile-batch-row input{border:1px solid var(--border);border-radius:6px;padding:7px 8px;font-size:13px;width:100%;outline:none;font-family:'Inter',sans-serif;}
 .edit-delivery-row{display:grid;grid-template-columns:1fr 70px 120px 120px 28px;gap:8px;align-items:center;}
@@ -3921,17 +3926,23 @@ function batchBreakdownHTML(clinic,drug,opening){
   var b=getBatchBreakdownForDrug(clinic,drug);
   if(!b.length)return '';
   var total=0,anyExpired=false,anySoon=false,anyNeg=false;
-  var chips=b.map(function(x){
+  var cl=clinic.replace(/'/g,"\\'"),dr=drug.replace(/'/g,"\\'");
+  var rows=b.map(function(x){
     total+=x.qty;
     var cls=x.qty<0?'neg':_expiryClass(x.expiry);
     if(cls==='expired')anyExpired=true;
     if(cls==='soon')anySoon=true;
     if(x.qty<0)anyNeg=true;
-    return '<button type="button" class="batch-chip '+cls+'" title="Batch '+x.batch+(x.expiry?' — expires '+x.expiry:'')+' — click for details"'
-      +' onclick="openBatchDetailModal(\''+clinic.replace(/'/g,"\\'")+'\',\''+drug.replace(/'/g,"\\'")+'\',\''+x.batch.replace(/'/g,"\\'")+'\')">'
+    var ba=x.batch.replace(/'/g,"\\'");
+    return '<div class="batch-line">'
+      +'<button type="button" class="batch-chip '+cls+'" title="Batch '+x.batch+(x.expiry?' — expires '+x.expiry:'')+' — click for details"'
+      +' onclick="openBatchDetailModal(\''+cl+'\',\''+dr+'\',\''+ba+'\')">'
       +x.batch+' <span class="bq">×'+x.qty+'</span>'
       +(x.expiry?' <span style="opacity:.75;">'+_expShort(x.expiry)+'</span>':'')
-      +'</button>';
+      +'</button>'
+      +'<button type="button" class="batch-admin-pill" title="Administer from this batch"'
+      +' onclick="quickAdministerFromBatch(\''+cl+'\',\''+dr+'\',\''+ba+'\')">💉 Administer</button>'
+      +'</div>';
   }).join('');
   total=Math.round(total*100)/100;
   var open=parseFloat(opening)||0;
@@ -3941,9 +3952,9 @@ function batchBreakdownHTML(clinic,drug,opening){
   if(anyNeg)notes.push('⚠ negative batch — check for a missing delivery');
   if(Math.abs(total-open)>0.001)notes.push('batches total '+total+' vs opening '+open+' — '+Math.round((open-total)*100)/100+' not attributed to a batch');
   return '<div class="drug-batches"><span style="font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Batches</span>'
-    +chips
+    +'<div class="drug-batches-list">'+rows+'</div>'
     +(notes.length?'<span class="batch-note">'+notes.join(' · ')+'</span>':'')
-    +' <a href="#" onclick="openReconcileBatchModal(\''+clinic.replace(/'/g,"\\'")+'\',\''+drug.replace(/'/g,"\\'")+'\');return false;" style="font-size:11px;">+ Attribute batch</a>'
+    +' <a href="#" onclick="openReconcileBatchModal(\''+cl+'\',\''+dr+'\');return false;" style="font-size:11px;">+ Attribute batch</a>'
     +'</div>';
 }
 // Batch detail modal — clicking a batch chip on the stocktake page shows
@@ -4023,8 +4034,8 @@ function openBatchDetailModal(clinic,drug,batch){
 function closeBatchDetailModal(){
   document.getElementById('batchDetailModal').classList.remove('open');
 }
-function quickAdministerFromBatch(){
-  var clinic=window._batchDetailClinic,drug=window._batchDetailDrug,batch=window._batchDetailBatch;
+function quickAdministerFromBatch(clinic,drug,batch){
+  clinic=clinic||window._batchDetailClinic;drug=drug||window._batchDetailDrug;batch=batch||window._batchDetailBatch;
   closeBatchDetailModal();
   showPage('administer');
   var clinicSel=document.getElementById('admClinic');
