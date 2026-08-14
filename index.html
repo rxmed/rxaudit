@@ -3371,7 +3371,9 @@ function initApp(){
   document.getElementById('stockNurse').value=currentUser.name;
   document.getElementById('nurseFullName').value=currentUser.name;
   document.getElementById('nurseAhpra').value=currentUser.ahpra||'';
-  document.getElementById('delivNurse').value=currentUser.name;
+  // Dr Philip Lo is always physically on site to receive deliveries,
+  // regardless of which staff member is entering the delivery into the app.
+  document.getElementById('delivNurse').value=(getSettings().rdpName||'Dr Philip Lo');
   // Admin can edit declaration fields; nurses are locked to their own profile
   var declarationReadonly=(currentUser.role==='nurse');
   var fnEl=document.getElementById('nurseFullName');
