@@ -1232,10 +1232,49 @@ textarea:focus{border-color:var(--teal);}
   <div class="modal" style="width:min(560px,96vw);">
     <div class="modal-title" id="wastageOptionsTitle">♻️ Wastage</div>
     <div id="wastageOptionsStats" style="padding:14px 16px;background:var(--bg);border-radius:10px;margin-bottom:14px;"></div>
-    <button class="btn btn-primary" style="margin-bottom:14px;" id="wastageOptionsRecordBtn" onclick="quickRecordWastage()">♻️ Record wastage for this drug</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="btn btn-primary" id="wastageOptionsRecordBtn" onclick="quickRecordWastage()">♻️ Record wastage for a patient dose</button>
+      <button class="btn btn-red" id="wastageOptionsDiscardBtn" onclick="openDiscardStockModal()">🗑 Discard stock (no patient)</button>
+    </div>
     <div id="wastageOptionsBody"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeWastageOptionsModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- DISCARD STOCK (breakage / expiry / cold chain — no patient involved) -->
+<div class="modal-overlay" id="discardStockModal">
+  <div class="modal" style="width:min(520px,96vw);">
+    <div class="modal-title" id="discardStockTitle">🗑 Discard Stock</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Use this when stock is destroyed or unusable without ever being given to a patient — a dropped ampoule, expired vial, or a cold chain failure. This is recorded and reported as wastage, separate from the patient administration register.</p>
+    <div class="form-row">
+      <div class="field">
+        <label>Batch no. <span style="color:var(--red);">*</span></label>
+        <select id="discardBatchSel" onchange="discardOnBatchChange()" style="margin-bottom:6px;"></select>
+        <input type="text" id="discardBatch" class="hidden" placeholder="Type batch number" style="font-family:monospace;">
+      </div>
+      <div class="field"><label>Qty discarded <span style="color:var(--red);">*</span></label><input type="number" id="discardQty" min="0" step="any" value="0" oninput="discardUpdatePreview()"></div>
+    </div>
+    <div class="field">
+      <label>Reason <span style="color:var(--red);">*</span></label>
+      <select id="discardReason" onchange="discardReasonChange()">
+        <option value="">-- select reason --</option>
+        <option value="Ampoule breakage / damage">Ampoule breakage / damage</option>
+        <option value="Expired stock">Expired stock</option>
+        <option value="Cold chain failure (out of fridge / temperature excursion)">Cold chain failure (out of fridge / temperature excursion)</option>
+        <option value="Other">Other (specify)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label id="discardDetailLabel">Additional detail (optional)</label>
+      <input type="text" id="discardDetail" placeholder="e.g. Dropped during preparation, vial shattered">
+    </div>
+    <div class="field"><label>Witness (recommended)</label><input type="text" id="discardWitness" placeholder="Name of witnessing staff member"></div>
+    <div id="discardPreview" style="margin-top:6px;padding:14px 16px;background:var(--bg);border-radius:10px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDiscardStockModal()">Cancel</button>
+      <button class="btn btn-red" onclick="submitDiscardStock()">🗑 Confirm Discard</button>
     </div>
   </div>
 </div>
@@ -4017,6 +4056,95 @@ function quickRecordWastage(){
   if(!window._admWasteOpen)toggleAdmWasteRow();
   document.getElementById('admWasted').focus();
 }
+
+// Discard stock — a vial destroyed by breakage, expiry, or a cold chain
+// failure was never given to any patient, so it doesn't belong in the
+// patient administration register. Recorded as an Administration record
+// with qty:0 and only wasted set, so it reduces the balance and shows up
+// in the wastage report the same way, without a patient attached.
+function openDiscardStockModal(){
+  var clinic=window._wastageClinic,drug=window._wastageDrug;
+  closeWastageOptionsModal();
+  document.getElementById('discardStockTitle').textContent='🗑 Discard Stock — '+drug;
+  var batches=getBatchOptionsForDrug(clinic,drug);
+  var sel=document.getElementById('discardBatchSel');
+  sel.innerHTML=batches.map(function(b){
+    return '<option value="'+b.batch+'" data-exp="'+(b.expiry||'')+'">'+b.batch+(b.expiry?' — exp '+b.expiry:'')+'</option>';
+  }).join('')+'<option value="__new__">+ Type batch number manually…</option>';
+  if(!batches.length)sel.value='__new__';
+  discardOnBatchChange();
+  document.getElementById('discardQty').value='0';
+  document.getElementById('discardReason').value='';
+  document.getElementById('discardDetail').value='';
+  document.getElementById('discardWitness').value='';
+  discardReasonChange();
+  discardUpdatePreview();
+  document.getElementById('discardStockModal').classList.add('open');
+}
+function closeDiscardStockModal(){
+  document.getElementById('discardStockModal').classList.remove('open');
+}
+function discardOnBatchChange(){
+  var sel=document.getElementById('discardBatchSel');
+  var manual=document.getElementById('discardBatch');
+  if(sel.value==='__new__'){
+    manual.classList.remove('hidden');
+    if(manual.value&&sel.querySelector('option[value="'+manual.value+'"]'))manual.value='';
+  }else{
+    manual.classList.add('hidden');
+    manual.value=sel.value;
+  }
+}
+function discardReasonChange(){
+  var reason=document.getElementById('discardReason').value;
+  var label=document.getElementById('discardDetailLabel');
+  label.innerHTML=reason==='Other'
+    ?'Detail <span style="color:var(--red);">*</span> — required when reason is "Other"'
+    :'Additional detail (optional)';
+}
+function discardUpdatePreview(){
+  var clinic=window._wastageClinic,drug=window._wastageDrug;
+  var qty=parseFloat(document.getElementById('discardQty').value)||0;
+  var el=document.getElementById('discardPreview');
+  if(!clinic||!drug){el.innerHTML='';return;}
+  var r=getDrugBalance(clinic,drug);
+  var after=Math.round((r.balance-qty)*100)/100;
+  el.innerHTML='<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Balance before</div><div style="font-size:22px;font-weight:700;">'+r.balance+'</div></div>'
+    +'<div style="font-size:18px;color:var(--muted);">→</div>'
+    +'<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Balance after</div><div style="font-size:22px;font-weight:700;'+(after<0?'color:var(--red);':'color:var(--navy);')+'">'+after+'</div></div>';
+}
+function submitDiscardStock(){
+  var clinic=window._wastageClinic,drug=window._wastageDrug;
+  var batch=(document.getElementById('discardBatch').value||'').trim();
+  var qty=parseFloat(document.getElementById('discardQty').value)||0;
+  var reason=document.getElementById('discardReason').value;
+  var detail=(document.getElementById('discardDetail').value||'').trim();
+  var witness=(document.getElementById('discardWitness').value||'').trim();
+  if(!batch){showToast('Batch number is required');return;}
+  if(qty<=0){showToast('Enter the quantity discarded');return;}
+  if(!reason){showToast('Select a reason for the discard');return;}
+  if(reason==='Other'&&!detail){showToast('Please specify the reason (selected "Other")');return;}
+  var wasteReason=reason+(detail?' — '+detail:'');
+  var before=getDrugBalance(clinic,drug).balance;
+  var after=Math.round((before-qty)*100)/100;
+  if(after<0&&!confirm('This discard takes the recorded balance to '+after+'.\n\nThat usually means a delivery or stocktake has not been entered yet. Record it anyway?'))return;
+  var now=new Date();
+  saveRecord({
+    type:'Administration',clinic:clinic,
+    date:now.toISOString().split('T')[0],time:now.toTimeString().slice(0,5),
+    patient:'(Discarded — no patient)',patientId:'',
+    drug:drug,batch:batch,expiry:'',
+    qty:0,wasted:qty,wasteReason:wasteReason,
+    witness:witness,site:'',
+    balanceAfter:after,
+    by:currentUser.name,ahpra:currentUser.ahpra||'',
+    discard:true
+  });
+  autoReconcileStocktakeAfterAdministration(clinic,drug,0,qty,'(Discarded — no patient)',batch);
+  closeDiscardStockModal();
+  loadLastStocktake();
+  showToast('✓ '+qty+' '+drug+' discarded — balance now '+after);
+}
 // Batch detail modal — clicking a batch chip on the stocktake page shows
 // where it came from, who it's been given to, and offers a quick jump to
 // record another dose from it without retyping the drug or batch.
@@ -4256,7 +4384,7 @@ function renderTodayAdministrations(){
   list.forEach(function(r){
     doses+=parseFloat(r.qty)||0;
     wasted+=parseFloat(r.wasted)||0;
-    if(r.patient)pts[r.patient.toLowerCase()]=1;
+    if(r.patient&&!r.discard)pts[r.patient.toLowerCase()]=1;
     if(r.drug)drugs[r.drug]=1;
   });
   function stat(label,val,color){
@@ -4297,7 +4425,7 @@ function renderTodayAdministrations(){
 function getKnownPatients(clinic){
   var seen={},out=[];
   getAdministrations()
-    .filter(function(r){return !r.voided&&(!clinic||r.clinic===clinic);})
+    .filter(function(r){return !r.voided&&!r.discard&&(!clinic||r.clinic===clinic);})
     .sort(function(a,b){return _ts(b).localeCompare(_ts(a));})
     .forEach(function(r){
       if(!r.patient)return;
@@ -4515,7 +4643,7 @@ function renderAdminRegister(){
     list.forEach(function(r){
       if(r.voided){tVoid++;return;}
       tAdm+=parseFloat(r.qty)||0;tWas+=parseFloat(r.wasted)||0;
-      if(r.patient)pts[r.patient.toLowerCase()]=1;
+      if(r.patient&&!r.discard)pts[r.patient.toLowerCase()]=1;
     });
     sum.innerHTML=list.length
       ?'<span class="pill blue">'+list.length+' entries</span> '
@@ -4696,7 +4824,7 @@ function runRecallSearch(){
     if(r.voided){voidedCount++;return;}
     given+=parseFloat(r.qty)||0;
     wasted+=parseFloat(r.wasted)||0;
-    if(r.patient){
+    if(r.patient&&!r.discard){
       var k=r.patient.toLowerCase();
       if(!patients[k])patients[k]={name:r.patient,id:r.patientId||'',doses:0,dates:[],clinic:r.clinic};
       patients[k].doses+=parseFloat(r.qty)||0;
@@ -4803,7 +4931,7 @@ function exportRecallPDF(){
     if(r.drug)drugs[r.drug]=1;
     if(r.voided)return;
     given+=parseFloat(r.qty)||0;wasted+=parseFloat(r.wasted)||0;
-    if(r.patient){
+    if(r.patient&&!r.discard){
       var k=r.patient.toLowerCase();
       if(!patients[k])patients[k]={name:r.patient,id:r.patientId||'',clinic:r.clinic||'',doses:0,dates:[]};
       patients[k].doses+=parseFloat(r.qty)||0;patients[k].dates.push(r.date);
@@ -5839,7 +5967,7 @@ function exportPDF(reportType){
   }
   if(reportType==='patients'||reportType==='all'){
     var byPt={};
-    records.filter(function(r){return r.type==='Administration'&&!r.voided;}).forEach(function(r){
+    records.filter(function(r){return r.type==='Administration'&&!r.voided&&!r.discard;}).forEach(function(r){
       var k=(r.patient||'Unnamed').toLowerCase();
       if(!byPt[k])byPt[k]={name:r.patient||'Unnamed',id:r.patientId||'',clinic:r.clinic||'',rows:[],total:0};
       if(r.patientId)byPt[k].id=r.patientId;
@@ -5888,7 +6016,7 @@ function exportPDF(reportType){
         var e=bslot(r.batch,r.drug,r.clinic,r.expiry);
         e.given+=parseFloat(r.qty)||0;
         e.wasted+=parseFloat(r.wasted)||0;
-        if(r.patient)e.pts[r.patient.toLowerCase()]=1;
+        if(r.patient&&!r.discard)e.pts[r.patient.toLowerCase()]=1;
       }
     });
     var btRows=Object.keys(bt).sort().map(function(k){return bt[k];});
