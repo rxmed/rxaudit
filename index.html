@@ -406,11 +406,22 @@ textarea:focus{border-color:var(--teal);}
           <div class="field"><label>Expiry</label><input type="date" id="admExpiry"></div>
         </div>
         <div class="form-row three">
-          <div class="field"><label>Qty administered <span style="color:var(--red);">*</span></label><input type="number" id="admQty" min="0" step="any" value="0" oninput="admUpdateBalance()"></div>
-          <div class="field"><label>Qty wasted / discarded</label><input type="number" id="admWasted" min="0" step="any" value="0" oninput="admUpdateBalance()"></div>
+          <div class="field">
+            <label>Qty administered <span style="color:var(--red);">*</span></label>
+            <div class="stepper">
+              <button type="button" onclick="admQtyStep(-1)" tabindex="-1">−</button>
+              <span class="stepper-val" id="admQtyVal">0</span>
+              <button type="button" onclick="admQtyStep(1)" tabindex="-1">+</button>
+              <input type="number" id="admQty" value="0" min="0" style="display:none;" tabindex="-1">
+            </div>
+          </div>
           <div class="field"><label>Treatment site / indication</label><input type="text" id="admSite" placeholder="e.g. Glabella, 20U"></div>
+          <div class="field" style="display:flex;align-items:flex-end;">
+            <a href="#" id="admWasteToggle" onclick="toggleAdmWasteRow();return false;" style="font-size:13px;">+ Record wastage</a>
+          </div>
         </div>
-        <div class="form-row" id="admWasteRow" style="display:none;">
+        <div class="form-row three" id="admWasteRow" style="display:none;">
+          <div class="field"><label>Qty wasted / discarded</label><input type="number" id="admWasted" min="0" step="any" value="0" oninput="admUpdateBalance()"></div>
           <div class="field"><label>Wastage reason <span style="color:var(--red);">*</span></label><input type="text" id="admWasteReason" placeholder="e.g. Residual volume in vial discarded after single-patient use"></div>
           <div class="field"><label>Witness (recommended for wastage)</label><input type="text" id="admWitness" placeholder="Name of witnessing staff member"></div>
         </div>
@@ -4325,12 +4336,33 @@ function admOnBatchChange(){
     if(exp)document.getElementById('admExpiry').value=exp;
   }
 }
+function admQtyStep(delta){
+  var input=document.getElementById('admQty');
+  var next=Math.max(0,(parseFloat(input.value)||0)+delta);
+  input.value=next;
+  document.getElementById('admQtyVal').textContent=next;
+  admUpdateBalance();
+}
+window._admWasteOpen=false;
+function toggleAdmWasteRow(){
+  window._admWasteOpen=!window._admWasteOpen;
+  document.getElementById('admWasteRow').style.display=window._admWasteOpen?'':'none';
+  document.getElementById('admWasteToggle').textContent=window._admWasteOpen?'− Hide wastage':'+ Record wastage';
+  if(!window._admWasteOpen){
+    document.getElementById('admWasted').value='0';
+    admUpdateBalance();
+  }
+}
 function admUpdateBalance(){
   var clinic=document.getElementById('admClinic').value;
   var drug=document.getElementById('admDrug').value;
   var qty=parseFloat(document.getElementById('admQty').value)||0;
   var wasted=parseFloat(document.getElementById('admWasted').value)||0;
-  document.getElementById('admWasteRow').style.display=wasted>0?'':'none';
+  if(wasted>0&&!window._admWasteOpen){
+    window._admWasteOpen=true;
+    document.getElementById('admWasteToggle').textContent='− Hide wastage';
+  }
+  document.getElementById('admWasteRow').style.display=window._admWasteOpen?'':'none';
   var bEl=document.getElementById('admBalBefore'),cEl=document.getElementById('admBalChange'),
       aEl=document.getElementById('admBalAfter'),sEl=document.getElementById('admBalSource');
   if(!clinic||!drug){bEl.textContent='—';cEl.textContent='—';aEl.textContent='—';sEl.textContent='';return;}
@@ -4348,7 +4380,11 @@ function admResetForm(){
     var el=document.getElementById(id);if(el)el.value='';
   });
   document.getElementById('admQty').value='0';
+  document.getElementById('admQtyVal').textContent='0';
   document.getElementById('admWasted').value='0';
+  window._admWasteOpen=false;
+  document.getElementById('admWasteRow').style.display='none';
+  document.getElementById('admWasteToggle').textContent='+ Record wastage';
   var t=document.getElementById('admTime');if(t)t.value=new Date().toTimeString().slice(0,5);
   admUpdateBalance();
 }
