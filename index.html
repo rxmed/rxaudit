@@ -22,7 +22,8 @@
   --bg:#f0f4f8;--card:#ffffff;--border:#dde3ec;
   --text:#1a202c;--muted:#718096;--mono:'JetBrains Mono',monospace;
 }
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+html{touch-action:manipulation;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;touch-action:manipulation;}
 .login-screen{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:1000;}
 .login-box{background:white;border-radius:16px;padding:40px;width:400px;box-shadow:0 24px 80px rgba(0,0,0,0.4);}
 .login-logo{font-family:var(--mono);font-size:13px;letter-spacing:0.2em;color:var(--teal);text-transform:uppercase;font-weight:500;margin-bottom:4px;}
@@ -87,6 +88,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
 .dot.green{background:var(--green);}.dot.amber{background:var(--amber);}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.form-row-dt{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
 .form-row.three{grid-template-columns:1fr 1fr 1fr;}
 .field{display:flex;flex-direction:column;gap:5px;}
 .field label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);}
@@ -109,7 +111,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .agreement-text p{margin:0 0 8px;}
 .agreement-text ul{margin:0 0 8px 18px;padding:0;}
 .agreement-text li{margin-bottom:4px;}
-.drug-row{display:grid;grid-template-columns:200px 80px 80px 1fr 28px 28px;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:white;margin-bottom:6px;font-size:13px;}
+.drug-row{display:grid;grid-template-columns:200px 80px 80px 1fr auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:white;margin-bottom:6px;font-size:13px;}
+.drug-row-actions{display:flex;align-items:center;gap:4px;}
+.row-reorder{display:flex;flex-direction:column;gap:1px;}
+.row-reorder button{width:20px;height:14px;font-size:8px;line-height:1;border:1px solid var(--border);border-radius:3px;background:#f8fafc;cursor:pointer;padding:0;color:var(--muted);}
+.row-reorder button:hover{border-color:var(--teal);color:var(--teal);}
+.row-reorder button:disabled{opacity:.3;cursor:default;}
 .drug-row.header{background:var(--navy);color:white;font-size:10px;font-weight:700;text-transform:uppercase;border-color:var(--navy);}
 .drug-row input[type="number"]{border:1px solid var(--border);border-radius:5px;padding:5px 7px;font-size:13px;font-family:var(--mono);width:100%;text-align:right;outline:none;}
 .drug-batches{grid-column:1/-1;font-size:11px;color:var(--muted);padding-top:7px;margin-top:3px;border-top:1px dashed var(--border);display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
@@ -216,9 +223,9 @@ textarea:focus{border-color:var(--teal);}
   .nav-item{flex-direction:column;gap:2px;padding:8px 4px;font-size:9px;text-align:center;border-left:none!important;border-top:3px solid transparent;min-width:54px;flex:1 0 auto;}
   .nav-item.active{border-top-color:var(--teal);border-left:none;background:rgba(0,184,162,0.15);}
   .nav-icon{font-size:18px;width:auto;}
-  .main{padding:12px;padding-bottom:80px;order:1;}
-  .header{height:48px;padding:0 12px;}
-  .layout{margin-top:48px;}
+  .main{padding:10px;padding-bottom:76px;order:1;}
+  .header{height:44px;padding:0 12px;}
+  .layout{margin-top:44px;}
   .header-title{display:none;}
   .header-logo{font-size:10px;}
   .user-name{font-size:11px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -228,15 +235,25 @@ textarea:focus{border-color:var(--teal);}
   .clinic-grid{grid-template-columns:1fr 1fr;}
   .form-row.three{grid-template-columns:1fr;}
   .form-row{grid-template-columns:1fr;}
-  .page-header{flex-direction:column;gap:10px;}
-  .page-title{font-size:18px;}
+  .page-header{flex-direction:column;gap:6px;margin-bottom:12px!important;}
+  .page-title{font-size:17px;}
+  .page-sub{font-size:12px;}
+  /* Denser cards/fields on mobile so more of a screen fits without scrolling */
+  .card{padding:12px 14px!important;margin-bottom:10px!important;}
+  .card-title{margin-bottom:8px!important;}
+  .form-row,.form-row.three,.form-row-dt{margin-bottom:8px!important;gap:8px!important;}
+  .field{gap:3px!important;}
+  .field label{font-size:10px!important;}
+  .field select,.field input,.field textarea{padding:7px 9px!important;}
+  .lf{margin-bottom:10px!important;gap:3px!important;}
+  .alert-box{padding:9px 12px!important;margin-bottom:10px!important;}
+  .checklist .check-item{padding:8px 10px!important;}
+  .btn{padding:9px 14px!important;}
   .drug-row{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:13px;padding:12px;}
   .drug-row.header{display:none;}
   .drug-row .drug-name{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--navy);}
   .drug-row .variance{grid-column:1/-1;text-align:right;font-size:13px;padding-top:2px;border-top:1px solid var(--border);}
-  .drug-row .drug-row-wastage,.drug-row .drug-row-delete{grid-column:auto;justify-self:end;margin-top:-4px;}
-  .drug-row .drug-row-wastage{grid-column:1/2;justify-self:start;}
-  .drug-row .drug-row-delete{grid-column:2/3;}
+  .drug-row .drug-row-actions{grid-column:1/-1;justify-self:end;margin-top:-4px;}
   .drug-field-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:3px;}
   .delivery-drug-row{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:white;}
   .delivery-drug-row .del-row-btn{align-self:flex-end;width:auto;padding:4px 12px;border:1px solid var(--red);border-radius:6px;color:var(--red);background:transparent;font-size:12px;}
@@ -382,8 +399,8 @@ textarea:focus{border-color:var(--teal);}
 
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">💉 New Administration Entry</div>
-        <div class="form-row three">
-          <div class="field"><label>Nurse / Clinic</label><select id="admClinic" onchange="admOnClinicChange()"></select></div>
+        <div class="field" style="margin-bottom:12px;"><label>Nurse / Clinic</label><select id="admClinic" onchange="admOnClinicChange()"></select></div>
+        <div class="form-row-dt">
           <div class="field"><label>Date</label><input type="date" id="admDate"></div>
           <div class="field"><label>Time</label><input type="time" id="admTime"></div>
         </div>
@@ -492,7 +509,7 @@ textarea:focus{border-color:var(--teal);}
           <div class="field"><label>Stocktake Type</label><select id="stockType"><option>Opening (start of day)</option><option>Closing (end of day)</option><option>Mid-session check</option></select></div>
           <div class="field"><label>Completed by</label><input type="text" id="stockNurse"></div>
         </div>
-        <div class="form-row">
+        <div class="form-row-dt">
           <div class="field"><label>Date</label><input type="date" id="stockDate"></div>
           <div class="field"><label>Time</label><input type="time" id="stockTime"></div>
         </div>
@@ -607,7 +624,7 @@ textarea:focus{border-color:var(--teal);}
           <div class="field"><label>Supplier</label><select id="delivSupplier"></select></div>
           <div class="field"><label>Invoice / Order number</label><input type="text" id="delivInvoice" placeholder="INV-2024-XXXXX"></div>
         </div>
-        <div class="form-row">
+        <div class="form-row-dt">
           <div class="field"><label>Delivery date</label><input type="date" id="delivDate"></div>
           <div class="field"><label>Received by</label><input type="text" id="delivNurse"></div>
         </div>
@@ -674,8 +691,8 @@ textarea:focus{border-color:var(--teal);}
       <div class="alert-box purple"><span>📅</span><div>This meeting must be held monthly and records retained for 2 years (MPA 2019). The completed form should be signed, saved, and available for QLD Health inspection.</div></div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">Meeting Details</div>
-        <div class="form-row three">
-          <div class="field"><label>Nurse</label><select id="meetingClinic"></select></div>
+        <div class="field" style="margin-bottom:12px;"><label>Nurse</label><select id="meetingClinic"></select></div>
+        <div class="form-row-dt">
           <div class="field"><label>Meeting date</label><input type="date" id="meetingDate"></div>
           <div class="field"><label>Meeting time</label><input type="time" id="meetingTime"></div>
         </div>
@@ -1517,6 +1534,7 @@ var _cache = {
   notifications: null,
   drugLists: {},
   removedDrugs: {},
+  drugOrder: {},
   billingData: {},
   billingPayments: [],
   billingConfig: null,
@@ -1580,6 +1598,10 @@ function _loadCacheFromFirebase(onDone){
     return _db.collection('removedDrugs').get();
   }).then(function(snap){
     snap.forEach(function(d){ _cache.removedDrugs[d.id] = d.data().list || []; });
+    // Load drug display order
+    return _db.collection('drugOrder').get();
+  }).then(function(snap){
+    snap.forEach(function(d){ _cache.drugOrder[d.id] = d.data().list || []; });
     onDone();
   }).catch(function(err){
     console.error('Cache load error:', err);
@@ -1606,6 +1628,11 @@ function _pushToFirebase(key, data){
   if(key === 'removedDrugs'){
     _db.collection('removedDrugs').doc(String(data.clinicKey))
       .set({list: data.list}).catch(function(e){ console.warn('FB push removedDrugs:', e); });
+    return;
+  }
+  if(key === 'drugOrder'){
+    _db.collection('drugOrder').doc(String(data.clinicKey))
+      .set({list: data.list}).catch(function(e){ console.warn('FB push drugOrder:', e); });
     return;
   }
   var payloads = {
@@ -1974,6 +2001,49 @@ function saveRemovedDrugsForClinic(clinic, removed){
   _cache.removedDrugs[clinicKey]=removed;
   try{ localStorage.setItem('rxaudit_removed_drugs_'+clinicKey,JSON.stringify(removed)); }catch(e){}
   _pushToFirebase('removedDrugs',{clinicKey:clinicKey,list:removed});
+}
+
+// The order a nurse prefers to see drugs listed in on the stocktake page —
+// purely a display preference, has no effect on balances or compliance.
+function getDrugOrderForClinic(clinic){
+  if(!clinic) return [];
+  var clinicKey=clinic.replace(/[ ]+/g,'_').toLowerCase();
+  if(_cache.drugOrder[clinicKey]!==undefined) return _cache.drugOrder[clinicKey];
+  try{ var d=JSON.parse(localStorage.getItem('rxaudit_drug_order_'+clinicKey));
+    if(d){ _cache.drugOrder[clinicKey]=d; return d; } }catch(e){}
+  _cache.drugOrder[clinicKey]=[]; return [];
+}
+function saveDrugOrderForClinic(clinic, order){
+  if(!clinic) return;
+  var clinicKey=clinic.replace(/\s+/g,'_').toLowerCase();
+  _cache.drugOrder[clinicKey]=order;
+  try{ localStorage.setItem('rxaudit_drug_order_'+clinicKey,JSON.stringify(order)); }catch(e){}
+  _pushToFirebase('drugOrder',{clinicKey:clinicKey,list:order});
+}
+// Sorts a list of drug names by the saved order, if any — drugs not yet in
+// the saved order keep their natural (discovery) order, appended at the end.
+function applyDrugOrder(clinic, names){
+  var order=getDrugOrderForClinic(clinic);
+  if(!order.length) return names;
+  var rank={};
+  order.forEach(function(d,i){rank[d]=i;});
+  return names.slice().sort(function(a,b){
+    var ra=rank.hasOwnProperty(a)?rank[a]:Infinity;
+    var rb=rank.hasOwnProperty(b)?rank[b]:Infinity;
+    if(ra!==rb) return ra-rb;
+    return names.indexOf(a)-names.indexOf(b);
+  });
+}
+function moveDrugRow(name, delta){
+  var clinic=document.getElementById('stockClinic')?document.getElementById('stockClinic').value:'';
+  if(!clinic)return;
+  var names=[].slice.call(document.querySelectorAll('#drugRows .drug-row')).map(function(r){return r.getAttribute('data-drug');});
+  var i=names.indexOf(name);
+  var j=i+delta;
+  if(i<0||j<0||j>=names.length)return;
+  var tmp=names[i];names[i]=names[j];names[j]=tmp;
+  saveDrugOrderForClinic(clinic,names);
+  loadLastStocktake();
 }
 
 function saveKnownDrugsForClinic(clinic, drugs){
@@ -3767,17 +3837,18 @@ function loadLastStocktake(){
   Object.keys(admTotals).forEach(function(dn){
     if(allDrugs.indexOf(dn)<0&&removed.indexOf(dn)<0)allDrugs.push(dn);
   });
+  allDrugs=applyDrugOrder(clinic,allDrugs);
   var container=document.getElementById('drugRows');
-  container.innerHTML=allDrugs.map(function(name){
+  container.innerHTML=allDrugs.map(function(name,i){
     var t=admTotals[name]||{administered:0,wasted:0};
-    return drugRowHTML(name,lastBalances[name]||0,t.administered,t.wasted,clinic);
+    return drugRowHTML(name,lastBalances[name]||0,t.administered,t.wasted,clinic,i===0,i===allDrugs.length-1);
   }).join('');
   if(delivNotes.length){
     var vn=document.getElementById('varianceNote');
     if(!vn.value.trim())vn.value='Opening balances include unprocessed deliveries:\n'+delivNotes.join('\n');
   }
 }
-function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic){
+function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic, isFirst, isLast){
   var v=parseFloat(openingVal)||0;
   var ad=parseFloat(adminVal)||0;
   var wa=parseFloat(wastedVal)||0;
@@ -3795,12 +3866,18 @@ function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic){
     +'<input type="number" class="wasted" value="'+wa+'" style="display:none;">'
     +'<div><span class="drug-field-label">Physical Count</span>'+stepperHTML('count',expected,0)+'</div>'
     +'<span class="variance ok">\u2713 0</span>'
+    +'<div class="drug-row-actions">'
+    +'<div class="row-reorder">'
+    +'<button type="button" onclick="moveDrugRow(\''+nm+'\',-1)" title="Move up"'+(isFirst?' disabled':'')+'>\u25B2</button>'
+    +'<button type="button" onclick="moveDrugRow(\''+nm+'\',1)" title="Move down"'+(isLast?' disabled':'')+'>\u25BC</button>'
+    +'</div>'
     +'<button type="button" onclick="openWastageOptions(\''+cl.replace(/'/g,"\\'")+'\',\''+nm+'\')" class="drug-row-wastage"'
-    +' style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;justify-self:center;"'
+    +' style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px;line-height:1;"'
     +' title="Wastage options">\u267B\uFE0F</button>'
     +'<button type="button" onclick="deleteDrugRow(this)" class="drug-row-delete"'
-    +' style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;justify-self:center;"'
+    +' style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;line-height:1;"'
     +' title="Remove drug">\uD83D\uDDD1</button>'
+    +'</div>'
     +batchBreakdownHTML(cl,name,v)
     +unattributedBatchLineHTML(cl,name,v)
     +'</div>';
@@ -7007,6 +7084,21 @@ function _attachRealtimeListeners(){
       if(changed) _refreshUI();
     }, function(err){ console.warn('onSnapshot removedDrugs error:', err); });
   }catch(e){ console.warn('Failed to attach removedDrugs listener:', e); }
+
+  try{
+    _db.collection('drugOrder').onSnapshot(function(snap){
+      var changed = false;
+      snap.docChanges().forEach(function(change){
+        var ckey = change.doc.id;
+        var incoming = change.doc.data().list || [];
+        if(JSON.stringify(_cache.drugOrder[ckey]) === JSON.stringify(incoming)) return;
+        _cache.drugOrder[ckey] = incoming;
+        try{ localStorage.setItem('rxaudit_drug_order_'+ckey, JSON.stringify(incoming)); }catch(e){}
+        changed = true;
+      });
+      if(changed) _refreshUI();
+    }, function(err){ console.warn('onSnapshot drugOrder error:', err); });
+  }catch(e){ console.warn('Failed to attach drugOrder listener:', e); }
 
   // Billing listeners (admin only — collections may not exist yet, errors are harmless)
   try{
