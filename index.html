@@ -109,7 +109,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .agreement-text p{margin:0 0 8px;}
 .agreement-text ul{margin:0 0 8px 18px;padding:0;}
 .agreement-text li{margin-bottom:4px;}
-.drug-row{display:grid;grid-template-columns:200px 80px 80px 80px 80px 1fr 28px 28px;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:white;margin-bottom:6px;font-size:13px;}
+.drug-row{display:grid;grid-template-columns:200px 80px 80px 1fr 28px 28px;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:7px;background:white;margin-bottom:6px;font-size:13px;}
 .drug-row.header{background:var(--navy);color:white;font-size:10px;font-weight:700;text-transform:uppercase;border-color:var(--navy);}
 .drug-row input[type="number"]{border:1px solid var(--border);border-radius:5px;padding:5px 7px;font-size:13px;font-family:var(--mono);width:100%;text-align:right;outline:none;}
 .drug-batches{grid-column:1/-1;font-size:11px;color:var(--muted);padding-top:7px;margin-top:3px;border-top:1px dashed var(--border);display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
@@ -500,7 +500,7 @@ textarea:focus{border-color:var(--teal);}
       <div class="card">
         <div class="card-title" style="margin-bottom:14px;">S4 Drug Physical Count</div>
         <div class="drug-row header">
-          <div>Drug / Product</div><div style="text-align:right;">Opening Bal.</div><div style="text-align:right;">Administered</div><div style="text-align:right;">Wasted</div><div style="text-align:right;">Physical Count</div><div>Variance</div>
+          <div>Drug / Product</div><div style="text-align:right;">Opening Bal.</div><div style="text-align:right;">Physical Count</div><div>Variance</div>
         </div>
         <div id="drugRows"></div>
         <div style="margin-top:12px;" class="field">
@@ -3791,8 +3791,8 @@ function drugRowHTML(name, openingVal, adminVal, wastedVal, clinic){
     +' title="Rename drug">\u270F\uFE0F</button>'
     +'</div>'
     +'<div><span class="drug-field-label">Opening Bal.</span>'+stepperHTML('open-bal',v,0)+'</div>'
-    +'<div><span class="drug-field-label">Administered</span><span class="static-field-val">'+ad+'</span><input type="number" class="admin" value="'+ad+'" style="display:none;"></div>'
-    +'<div><span class="drug-field-label">Wasted</span><span class="static-field-val">'+wa+'</span><input type="number" class="wasted" value="'+wa+'" style="display:none;"></div>'
+    +'<input type="number" class="admin" value="'+ad+'" style="display:none;">'
+    +'<input type="number" class="wasted" value="'+wa+'" style="display:none;">'
     +'<div><span class="drug-field-label">Physical Count</span>'+stepperHTML('count',expected,0)+'</div>'
     +'<span class="variance ok">\u2713 0</span>'
     +'<button type="button" onclick="openWastageOptions(\''+cl.replace(/'/g,"\\'")+'\',\''+nm+'\')" class="drug-row-wastage"'
