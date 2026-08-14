@@ -122,7 +122,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .batch-chip.neg{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
 .batch-note{font-size:11px;color:#b7791f;font-weight:600;}
 .drug-batches-list{width:100%;display:flex;flex-direction:column;gap:4px;margin:4px 0;}
-.batch-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.batch-line{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .batch-admin-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 10px;border-radius:20px;background:var(--teal);border:1px solid var(--teal);font-size:11px;font-weight:600;color:white;cursor:pointer;outline:none;white-space:nowrap;transition:filter 0.1s;}
 .batch-admin-pill:hover{filter:brightness(0.92);}
 .batch-admin-pill:active{filter:brightness(0.85);}
@@ -406,7 +406,7 @@ textarea:focus{border-color:var(--teal);}
           <div class="field"><label>Expiry</label><input type="date" id="admExpiry"></div>
         </div>
         <div class="form-row three">
-          <div class="field"><label>Qty administered <span style="color:var(--red);">*</span></label><input type="number" id="admQty" min="0" step="any" value="1" oninput="admUpdateBalance()"></div>
+          <div class="field"><label>Qty administered <span style="color:var(--red);">*</span></label><input type="number" id="admQty" min="0" step="any" value="0" oninput="admUpdateBalance()"></div>
           <div class="field"><label>Qty wasted / discarded</label><input type="number" id="admWasted" min="0" step="any" value="0" oninput="admUpdateBalance()"></div>
           <div class="field"><label>Treatment site / indication</label><input type="text" id="admSite" placeholder="e.g. Glabella, 20U"></div>
         </div>
@@ -4333,7 +4333,7 @@ function admResetForm(){
   ['admPatient','admPatientId','admSite','admWasteReason','admWitness'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.value='';
   });
-  document.getElementById('admQty').value='1';
+  document.getElementById('admQty').value='0';
   document.getElementById('admWasted').value='0';
   var t=document.getElementById('admTime');if(t)t.value=new Date().toTimeString().slice(0,5);
   admUpdateBalance();
