@@ -113,7 +113,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .drug-row.header{background:var(--navy);color:white;font-size:10px;font-weight:700;text-transform:uppercase;border-color:var(--navy);}
 .drug-row input[type="number"]{border:1px solid var(--border);border-radius:5px;padding:5px 7px;font-size:13px;font-family:var(--mono);width:100%;text-align:right;outline:none;}
 .drug-batches{grid-column:1/-1;font-size:11px;color:var(--muted);padding-top:7px;margin-top:3px;border-top:1px dashed var(--border);display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
-.batch-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--navy);}
+.batch-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);font-family:var(--mono);font-size:11px;color:var(--navy);cursor:pointer;outline:none;transition:filter 0.1s;}
+.batch-chip:hover{filter:brightness(0.95);}
+.batch-chip:active{filter:brightness(0.9);}
 .batch-chip .bq{font-weight:700;}
 .batch-chip.expired{background:#fee2e2;border-color:#fca5a5;color:#991b1b;}
 .batch-chip.soon{background:#fef3c7;border-color:#fcd34d;color:#92400e;}
@@ -1203,6 +1205,19 @@ textarea:focus{border-color:var(--teal);}
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeEditDeliveryModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveEditedDelivery()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- BATCH DETAIL (click a batch chip on the stocktake page) -->
+<div class="modal-overlay" id="batchDetailModal">
+  <div class="modal" style="width:min(640px,96vw);">
+    <div class="modal-title" id="batchDetailTitle">🏷 Batch</div>
+    <div id="batchDetailStats" style="display:flex;flex-wrap:wrap;gap:18px;padding:14px 16px;background:var(--bg);border-radius:10px;margin-bottom:16px;"></div>
+    <button class="btn btn-primary" style="margin-bottom:16px;" id="batchDetailAdminBtn" onclick="quickAdministerFromBatch()">💉 Administer from this batch</button>
+    <div id="batchDetailBody"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeBatchDetailModal()">Close</button>
     </div>
   </div>
 </div>
@@ -3912,10 +3927,11 @@ function batchBreakdownHTML(clinic,drug,opening){
     if(cls==='expired')anyExpired=true;
     if(cls==='soon')anySoon=true;
     if(x.qty<0)anyNeg=true;
-    return '<span class="batch-chip '+cls+'" title="Batch '+x.batch+(x.expiry?' — expires '+x.expiry:'')+'">'
+    return '<button type="button" class="batch-chip '+cls+'" title="Batch '+x.batch+(x.expiry?' — expires '+x.expiry:'')+' — click for details"'
+      +' onclick="openBatchDetailModal(\''+clinic.replace(/'/g,"\\'")+'\',\''+drug.replace(/'/g,"\\'")+'\',\''+x.batch.replace(/'/g,"\\'")+'\')">'
       +x.batch+' <span class="bq">×'+x.qty+'</span>'
       +(x.expiry?' <span style="opacity:.75;">'+_expShort(x.expiry)+'</span>':'')
-      +'</span>';
+      +'</button>';
   }).join('');
   total=Math.round(total*100)/100;
   var open=parseFloat(opening)||0;
@@ -3929,6 +3945,101 @@ function batchBreakdownHTML(clinic,drug,opening){
     +(notes.length?'<span class="batch-note">'+notes.join(' · ')+'</span>':'')
     +' <a href="#" onclick="openReconcileBatchModal(\''+clinic.replace(/'/g,"\\'")+'\',\''+drug.replace(/'/g,"\\'")+'\');return false;" style="font-size:11px;">+ Attribute batch</a>'
     +'</div>';
+}
+// Batch detail modal — clicking a batch chip on the stocktake page shows
+// where it came from, who it's been given to, and offers a quick jump to
+// record another dose from it without retyping the drug or batch.
+window._batchDetailClinic=null;window._batchDetailDrug=null;window._batchDetailBatch=null;
+function openBatchDetailModal(clinic,drug,batch){
+  window._batchDetailClinic=clinic;window._batchDetailDrug=drug;window._batchDetailBatch=batch;
+  document.getElementById('batchDetailTitle').textContent='🏷 Batch '+batch+' — '+drug;
+
+  var deliveries=[],admins=[];
+  getAllRecords().forEach(function(r){
+    if(r.clinic!==clinic)return;
+    if(r.type==='Delivery'){
+      (r.items||[]).forEach(function(it){
+        if(it.drug===drug&&it.batch===batch)deliveries.push({rec:r,item:it});
+      });
+    }else if(r.type==='Administration'&&r.drug===drug&&r.batch===batch){
+      admins.push(r);
+    }
+  });
+  deliveries.sort(function(a,b){return _ts(a.rec).localeCompare(_ts(b.rec));});
+  admins.sort(function(a,b){return _ts(b).localeCompare(_ts(a));});
+
+  var remaining=getBatchBreakdownForDrug(clinic,drug).filter(function(b){return b.batch===batch;})[0];
+  var received=deliveries.reduce(function(s,x){return s+(parseFloat(x.item.qty)||0);},0);
+  var given=0,wasted=0,voidedCount=0;
+  admins.forEach(function(r){
+    if(r.voided){voidedCount++;return;}
+    given+=parseFloat(r.qty)||0;wasted+=parseFloat(r.wasted)||0;
+  });
+  var expiry=deliveries.length?deliveries[deliveries.length-1].item.expiry:(remaining?remaining.expiry:'');
+
+  function stat(label,val,color){
+    return '<div style="flex:1;min-width:100px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">'+label+'</div>'
+      +'<div style="font-size:22px;font-weight:700;'+(color?'color:'+color+';':'')+'">'+val+'</div></div>';
+  }
+  document.getElementById('batchDetailStats').innerHTML=
+    stat('Remaining',remaining?remaining.qty:0,(remaining&&remaining.qty<0)?'var(--red)':'')
+    +stat('Received',received)
+    +stat('Given',given)
+    +stat('Wasted',wasted,wasted>0?'#b7791f':'')
+    +stat('Expiry',expiry?_expShort(expiry):'—',_expiryClass(expiry)==='expired'?'var(--red)':_expiryClass(expiry)==='soon'?'#b7791f':'');
+
+  var html='';
+  if(deliveries.length){
+    html+='<div style="margin-bottom:16px;"><div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">📦 Delivery Source</div>'
+      +'<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Supplier</th><th>Invoice</th><th style="text-align:right;">Qty</th><th>Expiry</th><th>Received by</th></tr></thead><tbody>'
+      +deliveries.map(function(x){
+        var vd=!!x.rec.voided;
+        return '<tr'+(vd?' style="opacity:.55;text-decoration:line-through;"':'')+'>'
+          +'<td>'+(x.rec.date||'')+'</td><td>'+(x.rec.supplier||'—')+'</td><td>'+(x.rec.invoice||'—')+'</td>'
+          +'<td style="text-align:right;">'+(x.item.qty||0)+'</td><td>'+(x.item.expiry||'—')+'</td><td>'+(x.rec.by||'')+(vd?' <span class="pill red" style="text-decoration:none;">VOID</span>':'')+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+  }
+  html+='<div><div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">💉 Administration Records ('+admins.length+(voidedCount?', '+voidedCount+' voided':'')+')</div>';
+  if(!admins.length){
+    html+='<p style="font-size:13px;color:var(--muted);">No patients have received a dose from this batch yet.</p>';
+  }else{
+    html+='<div class="table-scroll"><table class="table"><thead><tr><th>Date</th><th>Patient</th><th style="text-align:right;">Given</th><th style="text-align:center;">Wasted</th><th>Nurse</th></tr></thead><tbody>'
+      +admins.map(function(r){
+        var vd=!!r.voided;
+        return '<tr'+(vd?' style="opacity:.55;text-decoration:line-through;"':'')+'>'
+          +'<td style="white-space:nowrap;">'+(r.date||'')+' <span style="color:var(--muted);font-size:11px;">'+(r.time||'')+'</span></td>'
+          +'<td>'+(r.patient||'')+(r.patientId?' <span style="color:var(--muted);font-size:11px;">('+r.patientId+')</span>':'')+(vd?' <span class="pill red" style="text-decoration:none;">VOID</span>':'')+'</td>'
+          +'<td style="text-align:right;">'+(r.qty||0)+'</td>'
+          +'<td style="text-align:center;">'+((parseFloat(r.wasted)||0)>0?r.wasted:'—')+'</td>'
+          +'<td>'+(r.by||'')+'</td></tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }
+  html+='</div>';
+  document.getElementById('batchDetailBody').innerHTML=html;
+  document.getElementById('batchDetailModal').classList.add('open');
+}
+function closeBatchDetailModal(){
+  document.getElementById('batchDetailModal').classList.remove('open');
+}
+function quickAdministerFromBatch(){
+  var clinic=window._batchDetailClinic,drug=window._batchDetailDrug,batch=window._batchDetailBatch;
+  closeBatchDetailModal();
+  showPage('administer');
+  var clinicSel=document.getElementById('admClinic');
+  clinicSel.value=clinic;
+  admOnClinicChange();
+  var drugSel=document.getElementById('admDrug');
+  drugSel.value=drug;
+  admOnDrugChange();
+  var batchSel=document.getElementById('admBatchSel');
+  var opt=batchSel.querySelector('option[value="'+String(batch).replace(/"/g,'\\"')+'"]');
+  if(opt){batchSel.value=batch;}else{batchSel.value='__new__';}
+  admOnBatchChange();
+  if(batchSel.value==='__new__')document.getElementById('admBatch').value=batch;
+  admUpdateBalance();
+  document.getElementById('admPatient').focus();
 }
 // When a drug has stock but no batch records at all (pre-dates this feature),
 // still surface a way to attribute it — the summary chips above only render
