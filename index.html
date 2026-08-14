@@ -4352,8 +4352,19 @@ function submitAdministration(){
   if(!batch){showToast('Batch number is required');return;}
   if(qty<=0&&wasted<=0){showToast('Enter a quantity administered or wasted');return;}
   if(wasted>0&&!wasteReason){showToast('A written wastage reason is required (MPA 2019 s.60)');return;}
-  var after=Math.round((getDrugBalance(clinic,drug).balance-(qty+wasted))*100)/100;
-  if(after<0&&!confirm('This entry takes the recorded balance to '+after+'.\n\nThat usually means a delivery or stocktake has not been entered yet. Record it anyway?'))return;
+  var before=getDrugBalance(clinic,drug).balance;
+  var after=Math.round((before-(qty+wasted))*100)/100;
+  var msg='Confirm administration:\n\n'
+    +'Drug: '+drug+'\n'
+    +'Patient: '+patient+'\n'
+    +'Batch: '+batch+'\n'
+    +'Qty given: '+qty+(wasted>0?'\nQty wasted: '+wasted:'')+'\n\n'
+    +'Balance before: '+before+'\n'
+    +'Balance after: '+after+'\n\n'
+    +'The stocktake will be confirmed and saved automatically with this balance.'
+    +(after<0?'\n\n⚠ This takes the balance below zero — that usually means a delivery or stocktake has not been entered yet.':'')
+    +'\n\nRecord this entry?';
+  if(!confirm(msg))return;
   saveRecord({
     type:'Administration',clinic:clinic,
     date:document.getElementById('admDate').value,
