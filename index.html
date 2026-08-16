@@ -1159,6 +1159,16 @@ textarea:focus{border-color:var(--teal);}
           <button class="btn btn-red" onclick="if(confirm('Delete ALL records? Accounts kept.')) {localStorage.removeItem('rxaudit_records');renderDashboard();renderLog();showToast('Records cleared');}">🗑 Clear all records</button>
         </div>
       </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Bulk Delete — Pre-Cutoff Stocktake Entries</div></div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Permanently deletes Stocktake (physical count) records on or before a chosen date, across all clinics. Administration, Delivery, Compliance and Meeting records are never touched by this. Use this to remove early test entries once paper records confirm the counts are safe to discard.</p>
+        <div class="form-row">
+          <div class="field"><label>Delete stocktake entries on or before</label><input type="date" id="cleanupCutoffDate" value="2026-08-13"></div>
+          <div style="display:flex;align-items:flex-end;"><button class="btn btn-ghost btn-sm" onclick="previewStocktakeCleanup()">🔍 Preview what will be deleted</button></div>
+        </div>
+        <div id="cleanupPreview"></div>
+      </div>
     </div>
 
   </div>
@@ -7014,6 +7024,57 @@ function importJSON(input){
     }catch(err){showToast('Invalid backup file');}
   };
   reader.readAsText(input.files[0]);input.value='';
+}
+
+// ── BULK CLEANUP: pre-cutoff Stocktake entries ──
+// Shows exactly what will be deleted (and flags any clinic that would be
+// left with no stocktake history at all) before requiring the admin PIN to
+// actually perform an irreversible deletion.
+window._cleanupMatchIds=null;
+function previewStocktakeCleanup(){
+  var cutoff=document.getElementById('cleanupCutoffDate').value;
+  var el=document.getElementById('cleanupPreview');
+  if(!cutoff){showToast('Choose a cutoff date');return;}
+  var all=getAllRecords();
+  var match=all.filter(function(r){return r.type==='Stocktake'&&(r.date||'')<=cutoff;});
+  window._cleanupCutoff=cutoff;
+  window._cleanupMatchIds=match.map(function(r){return r.id;});
+  if(!match.length){
+    el.innerHTML='<p style="font-size:13px;color:var(--muted);margin-top:10px;">No Stocktake records found on or before '+cutoff+'.</p>';
+    return;
+  }
+  var byClinic={};
+  match.forEach(function(r){byClinic[r.clinic]=(byClinic[r.clinic]||0)+1;});
+  var afterByClinic={};
+  all.filter(function(r){return r.type==='Stocktake'&&(r.date||'')>cutoff;}).forEach(function(r){afterByClinic[r.clinic]=(afterByClinic[r.clinic]||0)+1;});
+  var resetClinics=Object.keys(byClinic).filter(function(c){return !afterByClinic[c];});
+  el.innerHTML='<div style="margin-top:10px;padding:14px 16px;background:var(--bg);border-radius:10px;">'
+    +'<p style="font-size:13px;margin-bottom:8px;"><strong>'+match.length+'</strong> Stocktake record(s) on or before <strong>'+cutoff+'</strong> will be permanently deleted:</p>'
+    +'<ul style="font-size:12px;color:var(--muted);margin:0 0 10px 18px;padding:0;">'
+    +Object.keys(byClinic).sort().map(function(c){return '<li>'+c+': '+byClinic[c]+'</li>';}).join('')
+    +'</ul>'
+    +(resetClinics.length?'<div class="alert-box warn" style="margin-bottom:10px;"><span>⚠️</span><div><strong>'+resetClinics.length+' clinic(s) will have no stocktake record left</strong> after this: '+resetClinics.join(', ')+'. Balances for those clinics start fresh from the next physical count entered.</div></div>':'')
+    +'<div class="form-row"><div class="field"><label>Type your admin PIN to confirm permanent deletion</label><input type="password" id="cleanupPin" placeholder="PIN"></div>'
+    +'<div style="display:flex;align-items:flex-end;"><button class="btn btn-red" onclick="confirmStocktakeCleanup()">🗑 Permanently delete '+match.length+' record(s)</button></div></div>'
+    +'</div>';
+}
+function confirmStocktakeCleanup(){
+  var pinEl=document.getElementById('cleanupPin');
+  var pin=(pinEl&&pinEl.value||'').trim();
+  if(pin!==String(currentUser.pin||'')){showToast('Incorrect PIN');return;}
+  var ids=window._cleanupMatchIds||[];
+  if(!ids.length){showToast('Nothing to delete — preview again first');return;}
+  var idSet={};ids.forEach(function(id){idSet[id]=1;});
+  var remaining=getAllRecords().filter(function(r){return !idSet[r.id];});
+  _cache.records=remaining;
+  localStorage.setItem('rxaudit_records',JSON.stringify(remaining));
+  _pushToFirebase('records',remaining);
+  var count=ids.length;
+  window._cleanupMatchIds=null;
+  document.getElementById('cleanupPreview').innerHTML='';
+  renderDashboard();
+  renderLog();
+  showToast('✓ Deleted '+count+' pre-cutoff stocktake record(s)');
 }
 
 // ============================================================
