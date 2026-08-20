@@ -3921,10 +3921,14 @@ function addCustomDrug(){
   if(!name){showToast('Enter a drug name first');return;}
   var existing=[...document.querySelectorAll('#drugRows .drug-row')].map(function(r){return r.getAttribute('data-drug');});
   if(existing.indexOf(name)>=0){showToast('That drug is already listed');return;}
-  document.getElementById('drugRows').insertAdjacentHTML('beforeend',drugRowHTML(name,0));
+  var clinic=document.getElementById('stockClinic')?document.getElementById('stockClinic').value:'';
+  // Pre-fill from the real current balance, not 0 — a drug being manually
+  // re-added (e.g. after being wrongly blacklisted by a past removal) may
+  // already have live stock from deliveries/administrations on record.
+  var opening=clinic?getDrugBalance(clinic,name).balance:0;
+  document.getElementById('drugRows').insertAdjacentHTML('beforeend',drugRowHTML(name,opening,0,0,clinic));
   document.getElementById('customDrugName').value='';
   // If this drug was previously removed for this clinic, un-remove it
-  var clinic=document.getElementById('stockClinic')?document.getElementById('stockClinic').value:'';
   if(clinic){
     var removed=getRemovedDrugsForClinic(clinic);
     if(removed.indexOf(name)>=0){
@@ -5224,6 +5228,15 @@ function submitDelivery(){
     if(item.drug&&knownDrugs.indexOf(item.drug)<0) knownDrugs.push(item.drug);
   });
   saveKnownDrugsForClinic(clinic,knownDrugs);
+  // A drug previously removed from this clinic's stocktake view (🗑) stays
+  // blacklisted forever unless explicitly un-removed — a fresh delivery of
+  // it is exactly that signal, otherwise the stock arrives but the drug
+  // never reappears as a row to see or select on Daily Stocktake.
+  var removedForDelivery=getRemovedDrugsForClinic(clinic);
+  var stillRemoved=removedForDelivery.filter(function(d){
+    return !items.some(function(it){return it.drug===d;});
+  });
+  if(stillRemoved.length!==removedForDelivery.length)saveRemovedDrugsForClinic(clinic,stillRemoved);
   autoReconcileStocktakeAfterDelivery(clinic,items,{date:dateStr,time:timeStr,supplier:supplier,invoice:invoice});
   rebuildPendingForClinic(clinic);
   removeFile();
