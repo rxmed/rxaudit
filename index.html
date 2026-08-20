@@ -3548,7 +3548,7 @@ var DEFAULT_DRUGS=['Botox (onabotulinumtoxin A)','Dysport (abobotulinumtoxin A)'
 function initApp(){
   var now=new Date();
   document.getElementById('todayDate').textContent=now.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  var dateStr=now.toISOString().split('T')[0];
+  var dateStr=_localDateStr(now);
   var timeStr=now.toTimeString().slice(0,5);
   ['stockDate','delivDate','meetingDate'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=dateStr;});
   ['stockTime','meetingTime'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=timeStr;});
@@ -3675,7 +3675,7 @@ function getWeekKey(d){
   var day=dt.getDay();
   var diff=dt.getDate()-day+(day===0?-6:1);
   dt.setDate(diff);
-  return dt.toISOString().split('T')[0];
+  return _localDateStr(dt);
 }
 
 // ============================================================
@@ -3685,7 +3685,7 @@ function renderDashboard(){
   if(!document.getElementById('clinicStatusGrid'))return;
   renderTodayAdministrations();
   var records=getRecords();
-  var today=new Date().toISOString().split('T')[0];
+  var today=_localDateStr();
   var todayRec=records.filter(function(r){return r.date===today;});
   // Exclude auto-generated delivery reconciliations — receiving stock isn't
   // the same as completing the day's real Opening/Closing physical count,
@@ -3768,7 +3768,7 @@ function closeClinicView(){
 function renderClinicViewContent(clinic){
   var el=document.getElementById('clinicViewContent');
   var allRec=getAllRecords().filter(function(r){return r.clinic===clinic;});
-  var today=new Date().toISOString().split('T')[0];
+  var today=_localDateStr();
   var thisMonth=new Date().toISOString().slice(0,7);
   var nurses=getUsers().filter(function(u){return u.role==='nurse'&&u.clinic===clinic;});
   var lastST=allRec.find(function(r){return r.type==='Stocktake';});
@@ -3974,7 +3974,7 @@ function submitStocktake(){
   drugs.forEach(function(d){if(knownDrugs.indexOf(d.drug)<0){knownDrugs.push(d.drug);changed=true;}});
   if(changed) saveKnownDrugsForClinic(clinic,knownDrugs);
   var now=new Date();
-  saveRecord({type:'Stocktake',subtype:document.getElementById('stockType').value,clinic:clinic,by:currentUser.name,ahpra:ahpra,date:now.toISOString().split('T')[0],time:now.toTimeString().slice(0,5),drugs:drugs,hasVariance:hasVariance,varianceNote:varianceNote,patientNote:patientNote,checks:{locked:chk('chk1'),temp:chk('chk2'),register:chk('chk3'),expiry:chk('chk4')}});
+  saveRecord({type:'Stocktake',subtype:document.getElementById('stockType').value,clinic:clinic,by:currentUser.name,ahpra:ahpra,date:_localDateStr(now),time:now.toTimeString().slice(0,5),drugs:drugs,hasVariance:hasVariance,varianceNote:varianceNote,patientNote:patientNote,checks:{locked:chk('chk1'),temp:chk('chk2'),register:chk('chk3'),expiry:chk('chk4')}});
   clearPendingForClinic(clinic);
   document.getElementById('varianceNote').value='';
   document.getElementById('patientNote').value='';
@@ -3990,7 +3990,7 @@ function submitCompliance(){
   var checks=[...document.querySelectorAll('.comp-chk')];
   var passed=checks.filter(function(cb){return cb.checked;}).length;
   var now=new Date();
-  saveRecord({type:'Compliance',subtype:document.getElementById('complianceType').value,clinic:document.getElementById('complianceClinic').value,by:currentUser.name,date:now.toISOString().split('T')[0],time:now.toTimeString().slice(0,5),checksPassed:passed,checksTotal:checks.length,hasVariance:false});
+  saveRecord({type:'Compliance',subtype:document.getElementById('complianceType').value,clinic:document.getElementById('complianceClinic').value,by:currentUser.name,date:_localDateStr(now),time:now.toTimeString().slice(0,5),checksPassed:passed,checksTotal:checks.length,hasVariance:false});
   checks.forEach(function(cb){cb.checked=false;cb.closest('.check-item').classList.remove('checked');});
   showToast('\u2713 Compliance check saved ('+passed+'/'+checks.length+')');
   setTimeout(function(){showPage('dashboard');},1000);
@@ -4004,6 +4004,18 @@ function getAdministrations(){
   return all.filter(function(r){return r.type==='Administration';});
 }
 function _ts(r){return (r.date||'')+' '+(r.time||'00:00');}
+// Local-calendar-day date string (YYYY-MM-DD) — NOT toISOString(), which
+// reports the UTC date. For a Queensland user (UTC+10) that's wrong for the
+// entire local morning (UTC hasn't rolled over to today yet), silently
+// misdating anything saved before ~10am and breaking chronological
+// comparisons against records saved later the same local day.
+function _localDateStr(d){
+  d=d||new Date();
+  var y=d.getFullYear();
+  var m=String(d.getMonth()+1).padStart(2,'0');
+  var day=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
 
 // Running balance, mirroring the paper register:
 // last physical stocktake count + deliveries since - (administered + wasted) since.
@@ -4076,10 +4088,10 @@ function getBatchBreakdownForDrug(clinic,drug){
 }
 function _expiryClass(expiry){
   if(!expiry)return '';
-  var today=new Date().toISOString().split('T')[0];
+  var today=_localDateStr();
   if(expiry<today)return 'expired';
   var soon=new Date();soon.setDate(soon.getDate()+60);
-  return expiry<=soon.toISOString().split('T')[0]?'soon':'';
+  return expiry<=_localDateStr(soon)?'soon':'';
 }
 function _expShort(expiry){
   if(!expiry)return '';
@@ -4250,7 +4262,7 @@ function submitDiscardStock(){
   var now=new Date();
   saveRecord({
     type:'Administration',clinic:clinic,
-    date:now.toISOString().split('T')[0],time:now.toTimeString().slice(0,5),
+    date:_localDateStr(now),time:now.toTimeString().slice(0,5),
     patient:'(Discarded — no patient)',patientId:'',
     drug:drug,batch:batch,expiry:'',
     qty:0,wasted:qty,wasteReason:wasteReason,
@@ -4452,7 +4464,7 @@ function submitReconcileBatches(){
   // calculation going forward (the units are already counted in that
   // stocktake's physical count) while still appearing in batch/recall traces.
   var last=getLastStocktakeForClinic(clinic);
-  var date=last?last.date:new Date().toISOString().split('T')[0];
+  var date=last?last.date:_localDateStr();
   var time=last?last.time:new Date().toTimeString().slice(0,5);
   saveRecord({
     type:'Delivery',clinic:clinic,date:date,time:time,
@@ -4486,7 +4498,7 @@ function getAdminTotalsSinceLastStocktake(clinic){
 function renderTodayAdministrations(){
   var el=document.getElementById('todayAdminCard');
   if(!el)return;
-  var today=new Date().toISOString().split('T')[0];
+  var today=_localDateStr();
   var list=getAdministrations().filter(function(r){return r.date===today&&!r.voided;})
     .sort(function(a,b){return _ts(b).localeCompare(_ts(a));});
 
@@ -4578,7 +4590,7 @@ function renderAdministerPage(){
   fillClinicSelect('admClinic',false);
   var now=new Date();
   var dEl=document.getElementById('admDate'),tEl=document.getElementById('admTime');
-  if(dEl&&!dEl.value)dEl.value=now.toISOString().split('T')[0];
+  if(dEl&&!dEl.value)dEl.value=_localDateStr(now);
   if(tEl)tEl.value=now.toTimeString().slice(0,5);
   admOnClinicChange();
   renderAdminRegister();
@@ -5197,9 +5209,14 @@ function submitDelivery(){
     if(drug&&drug!=='__new__'&&qty)items.push({drug:drug,qty:qty,batch:row.querySelector('.drug-batch').value,expiry:row.querySelector('.drug-expiry').value,notes:row.querySelector('.drug-notes').value});
   });
   if(!items.length){showToast('Add at least one drug with a name and quantity');return;}
-  var now=new Date();var dateStr=now.toISOString().split('T')[0];var timeStr=now.toTimeString().slice(0,5);
+  var now=new Date();var dateStr=_localDateStr(now);var timeStr=now.toTimeString().slice(0,5);
   var supplier=document.getElementById('delivSupplier').value;
   var invoice=document.getElementById('delivInvoice').value;
+  // Capture balances before the write so the confirmation can show exactly
+  // what changed \u2014 otherwise a silent, correct update looks indistinguishable
+  // from nothing having happened.
+  var before={};
+  items.forEach(function(it){ if(!(it.drug in before)) before[it.drug]=getDrugBalance(clinic,it.drug).balance; });
   saveRecord({type:'Delivery',clinic:clinic,supplier:supplier,invoice:invoice,by:currentUser.name,date:dateStr,time:timeStr,items:items,attachment:attachedFile?{name:attachedFile.name,size:attachedFile.size}:null,hasVariance:false});
   // Save drug names to known list for this clinic
   var knownDrugs=getKnownDrugsForClinic(clinic);
@@ -5213,10 +5230,17 @@ function submitDelivery(){
   document.getElementById('delivInvoice').value='';
   document.getElementById('deliveryItems').innerHTML='';
   addDeliveryRow();
-  loadLastStocktake();
   renderRecentDeliveries();
-  showToast('\u2713 Delivery recorded \u2014 stock count confirmed and saved automatically');
-  setTimeout(function(){showPage('dashboard');},1000);
+  var summary=Object.keys(before).map(function(dn){
+    return dn+': '+before[dn]+' \u2192 '+getDrugBalance(clinic,dn).balance;
+  }).join(', ');
+  showToast('\u2713 Stocktake updated \u2014 '+summary);
+  // Land directly on Stocktake (same clinic) rather than the dashboard, so
+  // the updated count is immediately visible instead of requiring the nurse
+  // to navigate there separately to see proof anything changed.
+  var stockSel=document.getElementById('stockClinic');
+  if(stockSel)stockSel.value=clinic;
+  showPage('stocktake');
 }
 
 // \u2500\u2500 AUTO STOCKTAKE RECONCILIATION \u2500\u2500
@@ -5261,7 +5285,7 @@ function saveAutoStocktake(clinic,subtype,note){
   saveRecord({
     type:'Stocktake',subtype:subtype,clinic:clinic,
     by:currentUser.name,ahpra:currentUser.ahpra||'',
-    date:now.toISOString().split('T')[0],time:now.toTimeString().slice(0,5),
+    date:_localDateStr(now),time:now.toTimeString().slice(0,5),
     drugs:computeAutoStocktakeRows(clinic),hasVariance:false,varianceNote:note,patientNote:'',
     autoGenerated:true
   });
@@ -6994,7 +7018,7 @@ function exportJSON(){
     exported: new Date().toISOString()
   };
   var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rxaudit_backup_'+new Date().toISOString().split('T')[0]+'.json';a.click();
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rxaudit_backup_'+_localDateStr()+'.json';a.click();
   showToast('✓ Backup exported');
 }
 function importJSON(input){
