@@ -1978,11 +1978,15 @@ function getKnownDrugsForClinic(clinic){
   if(!clinic) return [];
   var clinicKey=clinic.replace(/[ ]+/g,'_').toLowerCase();
   var cached=getKnownDrugsForClinic_cache(clinicKey)||[];
-  // Merge with DEFAULT_DRUGS
-  var all=(DEFAULT_DRUGS||[]).slice();
-  cached.forEach(function(d){if(all.indexOf(d)<0)all.push(d);});
-  // Merge with last stocktake
   var lastRec=getLastStocktakeForClinic(clinic);
+  // DEFAULT_DRUGS is only a starter list before any real stocktake exists.
+  // Once history exists, don't force-merge it — otherwise a drug renamed
+  // away from a default name (e.g. generic "Botox" renamed to a specific
+  // product) would keep resurfacing as a selectable option in the
+  // Administer/Delivery drug dropdowns forever, risking a nurse picking the
+  // stale name and creating fresh data split across two names again.
+  var all=lastRec?[]:(DEFAULT_DRUGS||[]).slice();
+  cached.forEach(function(d){if(all.indexOf(d)<0)all.push(d);});
   if(lastRec&&lastRec.drugs){
     lastRec.drugs.forEach(function(d){if(d.drug&&all.indexOf(d.drug)<0)all.push(d.drug);});
   }
@@ -3792,7 +3796,14 @@ function loadLastStocktake(){
     if(lastDrugs.indexOf(pd.drug)<0)lastDrugs.push(pd.drug);
     delivNotes.push(pd.drug+': +'+pd.qty+' units from delivery on '+pd.date);
   });
-  var allDrugs=[...new Set([...DEFAULT_DRUGS,...lastDrugs])];
+  // DEFAULT_DRUGS is only a starter list for a clinic's very first stocktake
+  // (nothing tracked yet). Once real history exists, allDrugs is driven
+  // purely by what's actually been tracked (lastDrugs) — otherwise a
+  // renamed default (e.g. the generic "Botox" name renamed to a specific
+  // product) would keep resurfacing forever as a stray zero-balance row,
+  // since renameDrugForClinic() already rewrote every past record to the
+  // new name and DEFAULT_DRUGS has no idea that happened.
+  var allDrugs=last?[...new Set(lastDrugs)]:[...new Set([...DEFAULT_DRUGS,...lastDrugs])];
   // Pull administered/wasted straight from the administration register so the
   // physical count starts from what the register says it should be.
   var admTotals=getAdminTotalsSinceLastStocktake(clinic);
@@ -5066,13 +5077,15 @@ function exportRecallPDF(){
 var attachedFile=null;
 function getDeliveryDrugOptions(clinic){
   var cl=clinic||(document.getElementById('delivClinic')?document.getElementById('delivClinic').value:'')||'';
-  // Start with default drugs
-  var drugs=(DEFAULT_DRUGS||[]).slice();
+  var lastRec=getLastStocktakeForClinic(cl);
+  // Same rule as getKnownDrugsForClinic: DEFAULT_DRUGS is only a starter
+  // list before real history exists, so a renamed-away default name can't
+  // resurface as a selectable option here either.
+  var drugs=lastRec?[]:(DEFAULT_DRUGS||[]).slice();
   // Add known drugs saved for this clinic
   var known=getKnownDrugsForClinic(cl);
   known.forEach(function(d){if(drugs.indexOf(d)<0)drugs.push(d);});
   // Add drugs from last stocktake record
-  var lastRec=getLastStocktakeForClinic(cl);
   if(lastRec&&lastRec.drugs){
     lastRec.drugs.forEach(function(d){if(drugs.indexOf(d.drug)<0)drugs.push(d.drug);});
   }
