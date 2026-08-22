@@ -3925,7 +3925,7 @@ function submitStocktake(){
   document.getElementById('patientNote').value='';
   ['chk1','chk2','chk3','chk4'].forEach(function(id){var el=document.getElementById(id);el.checked=false;el.closest('.check-item').classList.remove('checked');});
   showToast('\u2713 Stocktake saved');
-  setTimeout(function(){showPage('dashboard');},1000);
+  showPage('dashboard');
 }
 
 // ============================================================
@@ -3938,7 +3938,7 @@ function submitCompliance(){
   saveRecord({type:'Compliance',subtype:document.getElementById('complianceType').value,clinic:document.getElementById('complianceClinic').value,by:currentUser.name,date:_localDateStr(now),time:now.toTimeString().slice(0,5),checksPassed:passed,checksTotal:checks.length,hasVariance:false});
   checks.forEach(function(cb){cb.checked=false;cb.closest('.check-item').classList.remove('checked');});
   showToast('\u2713 Compliance check saved ('+passed+'/'+checks.length+')');
-  setTimeout(function(){showPage('dashboard');},1000);
+  showPage('dashboard');
 }
 
 // ============================================================
@@ -5686,7 +5686,7 @@ function submitMeeting(){
   meetingActions=[{action:'',responsible:'',due:'',done:false}];
   buildMeetingActions();
   document.getElementById('meetingNotes').value='';
-  setTimeout(function(){showPage('dashboard');},1000);
+  showPage('dashboard');
 }
 
 function renderMeetingToPDF(doc, data, s, startY, pageW, marginL, marginR, contentW){
@@ -6306,8 +6306,11 @@ function resetPin(id){
   showToast('\u2713 PIN reset');renderUsers();
 }
 function toggleUserActive(id){
+  var user=getUsers().find(function(u){return u.id===id;});
+  var nowActive=user&&user.active===false;
   saveUsers(getUsers().map(function(u){return u.id===id?Object.assign({},u,{active:u.active===false?true:false}):u;}));
   renderUsers();
+  if(user)showToast('✓ '+user.name+' '+(nowActive?'enabled':'disabled'));
 }
 function deleteUser(id){
   var user=getUsers().find(function(u){return u.id===id;});
